@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getProviderConfig } from '@/lib/providers';
 
 export async function POST(request: NextRequest) {
-  const { providerAId, providerBId } = await request.json();
+  const { providerAId, providerBId, modelAId, modelBId } = await request.json();
 
   if (!providerAId || !providerBId) {
     return NextResponse.json(
@@ -11,8 +11,8 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const providerA = getProviderConfig(providerAId);
-  const providerB = getProviderConfig(providerBId);
+  const providerA = getProviderConfig(providerAId, modelAId);
+  const providerB = getProviderConfig(providerBId, modelBId);
 
   if (!providerA || !providerB) {
     return NextResponse.json(
