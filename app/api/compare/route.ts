@@ -71,24 +71,40 @@ async function* streamFromProvider(
   }
 }
 
-async function* combineStreams<A, B>(
+async function* mergeStreams<A, B>(
   genA: AsyncGenerator<A>,
   genB: AsyncGenerator<B>
 ): AsyncGenerator<A | B> {
-  const iteratorA = genA[Symbol.asyncIterator]();
-  const iteratorB = genB[Symbol.asyncIterator]();
+  const itA = genA[Symbol.asyncIterator]();
+  const itB = genB[Symbol.asyncIterator]();
+  type Tagged = { tag: 'A' | 'B'; result: IteratorResult<A | B> };
+  const pull = (
+    it: AsyncIterator<A | B>,
+    tag: 'A' | 'B'
+  ): Promise<Tagged> => it.next().then((result) => ({ tag, result }));
 
-  let resultA = await iteratorA.next();
-  let resultB = await iteratorB.next();
+  let pA: Promise<Tagged> | null = pull(itA, 'A');
+  let pB: Promise<Tagged> | null = pull(itB, 'B');
 
-  while (!resultA.done || !resultB.done) {
-    if (!resultA.done) {
-      yield resultA.value;
-      resultA = await iteratorA.next();
-    }
-    if (!resultB.done) {
-      yield resultB.value;
-      resultB = await iteratorB.next();
+  while (pA || pB) {
+    const pending = [pA, pB].filter(
+      (p): p is Promise<Tagged> => p !== null
+    );
+    const winner = await Promise.race(pending);
+    if (winner.tag === 'A') {
+      if (winner.result.done) {
+        pA = null;
+      } else {
+        yield winner.result.value;
+        pA = pull(itA, 'A');
+      }
+    } else {
+      if (winner.result.done) {
+        pB = null;
+      } else {
+        yield winner.result.value;
+        pB = pull(itB, 'B');
+      }
     }
   }
 }
@@ -110,7 +126,7 @@ export async function POST(request: NextRequest) {
       const streamA = streamFromProvider(providerA, 'A', prompt);
       const streamB = streamFromProvider(providerB, 'B', prompt);
 
-      for await (const chunk of combineStreams(streamA, streamB)) {
+      for await (const chunk of mergeStreams(streamA, streamB)) {
         const data = `data: ${JSON.stringify(chunk)}\n\n`;
         controller.enqueue(encoder.encode(data));
       }
