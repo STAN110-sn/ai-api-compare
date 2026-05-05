@@ -1,9 +1,21 @@
+export interface ModelConfig {
+  id: string;
+  name: string;
+}
+
 export interface ProviderConfig {
   id: string;
   name: string;
   apiKey: string;
   baseUrl: string;
   model: string;
+  models: ModelConfig[];
+}
+
+export interface ProviderInfo {
+  id: string;
+  name: string;
+  models: ModelConfig[];
 }
 
 export interface ComparisonRequest {

@@ -4,13 +4,8 @@ import { useState, useCallback, useEffect } from 'react';
 import { ProviderSelector } from '@/components/ProviderSelector';
 import { PromptInput } from '@/components/PromptInput';
 import { ResponsePanel } from '@/components/ResponsePanel';
-import { ProviderConfig, StreamChunk } from '@/lib/types';
+import { ProviderInfo, StreamChunk } from '@/lib/types';
 import { GitCompare } from 'lucide-react';
-
-interface Provider {
-  id: string;
-  name: string;
-}
 
 interface ResponseState {
   content: string;
@@ -33,9 +28,11 @@ const initialResponseState: ResponseState = {
 };
 
 export default function Home() {
-  const [providers, setProviders] = useState<Provider[]>([]);
+  const [providers, setProviders] = useState<ProviderInfo[]>([]);
   const [providerA, setProviderA] = useState<string | null>(null);
   const [providerB, setProviderB] = useState<string | null>(null);
+  const [modelA, setModelA] = useState<string | null>(null);
+  const [modelB, setModelB] = useState<string | null>(null);
   const [prompt, setPrompt] = useState('');
   const [responseA, setResponseA] = useState<ResponseState>(initialResponseState);
   const [responseB, setResponseB] = useState<ResponseState>(initialResponseState);
@@ -47,12 +44,33 @@ export default function Home() {
       .then((data) => {
         setProviders(data.providers);
         if (data.providers.length >= 2) {
-          setProviderA(data.providers[0].id);
-          setProviderB(data.providers[1].id);
+          const first = data.providers[0];
+          const second = data.providers[1];
+          setProviderA(first.id);
+          setProviderB(second.id);
+          setModelA(first.models[0]?.id || null);
+          setModelB(second.models[0]?.id || null);
         }
       })
       .catch((err) => console.error('Failed to fetch providers:', err));
   }, []);
+
+  // Update default model when provider changes
+  const handleProviderAChange = useCallback((id: string) => {
+    setProviderA(id);
+    const provider = providers.find(p => p.id === id);
+    if (provider) {
+      setModelA(provider.models[0]?.id || null);
+    }
+  }, [providers]);
+
+  const handleProviderBChange = useCallback((id: string) => {
+    setProviderB(id);
+    const provider = providers.find(p => p.id === id);
+    if (provider) {
+      setModelB(provider.models[0]?.id || null);
+    }
+  }, [providers]);
 
   const handleCompare = useCallback(async () => {
     if (!providerA || !providerB || !prompt.trim()) return;
@@ -65,7 +83,12 @@ export default function Home() {
       const configsRes = await fetch('/api/providers/config', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ providerAId: providerA, providerBId: providerB }),
+        body: JSON.stringify({
+          providerAId: providerA,
+          providerBId: providerB,
+          modelAId: modelA,
+          modelBId: modelB,
+        }),
       });
 
       const { providerA: configA, providerB: configB } = await configsRes.json();
@@ -158,10 +181,13 @@ export default function Home() {
     } finally {
       setIsComparing(false);
     }
-  }, [providerA, providerB, prompt]);
+  }, [providerA, providerB, modelA, modelB, prompt]);
 
   const providerAConfig = providers.find((p) => p.id === providerA);
   const providerBConfig = providers.find((p) => p.id === providerB);
+
+  const selectedModelAName = providerAConfig?.models.find(m => m.id === modelA)?.name || modelA;
+  const selectedModelBName = providerBConfig?.models.find(m => m.id === modelB)?.name || modelB;
 
   return (
     <div className="flex flex-col h-screen bg-gray-100 dark:bg-gray-900">
@@ -187,16 +213,22 @@ export default function Home() {
             <ProviderSelector
               providers={providers}
               selectedId={providerA}
-              onSelect={setProviderA}
-              label="Provider A"
-              disabledId={providerB}
+              selectedModelId={modelA}
+              onSelectProvider={handleProviderAChange}
+              onSelectModel={setModelA}
+              providerLabel="Provider A"
+              modelLabel="Model A"
+              disabledProviderId={providerB}
             />
             <ProviderSelector
               providers={providers}
               selectedId={providerB}
-              onSelect={setProviderB}
-              label="Provider B"
-              disabledId={providerA}
+              selectedModelId={modelB}
+              onSelectProvider={handleProviderBChange}
+              onSelectModel={setModelB}
+              providerLabel="Provider B"
+              modelLabel="Model B"
+              disabledProviderId={providerA}
             />
           </div>
           <PromptInput
@@ -210,14 +242,14 @@ export default function Home() {
 
         <div className="grid flex-1 grid-cols-1 gap-4 md:grid-cols-2 min-h-0">
           <ResponsePanel
-            providerName={providerAConfig?.name || 'Provider A'}
+            providerName={`${providerAConfig?.name || 'Provider A'}${selectedModelAName ? ` (${selectedModelAName})` : ''}`}
             content={responseA.content}
             isLoading={responseA.isLoading}
             metrics={responseA.metrics}
             error={responseA.error}
           />
           <ResponsePanel
-            providerName={providerBConfig?.name || 'Provider B'}
+            providerName={`${providerBConfig?.name || 'Provider B'}${selectedModelBName ? ` (${selectedModelBName})` : ''}`}
             content={responseB.content}
             isLoading={responseB.isLoading}
             metrics={responseB.metrics}
