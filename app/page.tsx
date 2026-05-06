@@ -52,43 +52,52 @@ export default function Home() {
         if (data.providers.length >= 2) {
           const first = data.providers[0];
           const second = data.providers[1];
+          const firstModel = first.models[0];
+          const secondModel = second.models[0];
           setProviderA(first.id);
           setProviderB(second.id);
-          setModelA(first.models[0]?.id || null);
-          setModelB(second.models[0]?.id || null);
+          setModelA(firstModel?.id || null);
+          setModelB(secondModel?.id || null);
+          setReasoningA(firstModel?.defaultReasoningEffort ?? '');
+          setReasoningB(secondModel?.defaultReasoningEffort ?? '');
         }
       })
       .catch((err) => console.error('Failed to fetch providers:', err));
   }, []);
 
-  // Update default model when provider changes; reset reasoning effort.
+  // When provider/model changes, seed reasoning effort from the model's
+  // configured default (if any), otherwise reset to Off.
   const handleProviderAChange = useCallback((id: string) => {
     setProviderA(id);
-    setReasoningA('');
     const provider = providers.find(p => p.id === id);
-    if (provider) {
-      setModelA(provider.models[0]?.id || null);
-    }
+    const firstModel = provider?.models[0];
+    setModelA(firstModel?.id || null);
+    setReasoningA(firstModel?.defaultReasoningEffort ?? '');
   }, [providers]);
 
   const handleProviderBChange = useCallback((id: string) => {
     setProviderB(id);
-    setReasoningB('');
     const provider = providers.find(p => p.id === id);
-    if (provider) {
-      setModelB(provider.models[0]?.id || null);
-    }
+    const firstModel = provider?.models[0];
+    setModelB(firstModel?.id || null);
+    setReasoningB(firstModel?.defaultReasoningEffort ?? '');
   }, [providers]);
 
   const handleModelAChange = useCallback((id: string) => {
     setModelA(id);
-    setReasoningA('');
-  }, []);
+    const model = providers
+      .find((p) => p.id === providerA)
+      ?.models.find((m) => m.id === id);
+    setReasoningA(model?.defaultReasoningEffort ?? '');
+  }, [providers, providerA]);
 
   const handleModelBChange = useCallback((id: string) => {
     setModelB(id);
-    setReasoningB('');
-  }, []);
+    const model = providers
+      .find((p) => p.id === providerB)
+      ?.models.find((m) => m.id === id);
+    setReasoningB(model?.defaultReasoningEffort ?? '');
+  }, [providers, providerB]);
 
   const handleCompare = useCallback(async () => {
     if (!providerA || !providerB || !prompt.trim()) return;
