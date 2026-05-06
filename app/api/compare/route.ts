@@ -1,11 +1,12 @@
 import { NextRequest } from 'next/server';
 import OpenAI from 'openai';
-import { ProviderConfig, StreamChunk } from '@/lib/types';
+import { ProviderConfig, ReasoningEffort, StreamChunk } from '@/lib/types';
 
 async function* streamFromProvider(
   provider: ProviderConfig,
   providerLabel: 'A' | 'B',
-  prompt: string
+  prompt: string,
+  reasoningEffort?: ReasoningEffort
 ): AsyncGenerator<StreamChunk> {
   const startTime = Date.now();
   let content = '';
@@ -24,16 +25,22 @@ async function* streamFromProvider(
       messages: [{ role: 'user', content: prompt }],
       stream: true,
       stream_options: { include_usage: true },
+      ...(reasoningEffort ? { reasoning_effort: reasoningEffort } : {}),
     });
 
     for await (const chunk of stream) {
-      const delta = chunk.choices[0]?.delta?.content || '';
-      if (delta) {
-        content += delta;
-        yield {
-          provider: providerLabel,
-          content: delta,
-        };
+      const delta = chunk.choices[0]?.delta as
+        | { content?: string; reasoning?: string; reasoning_content?: string }
+        | undefined;
+      const contentDelta = delta?.content || '';
+      const reasoningDelta = delta?.reasoning || delta?.reasoning_content || '';
+
+      if (contentDelta) {
+        content += contentDelta;
+        yield { provider: providerLabel, content: contentDelta };
+      }
+      if (reasoningDelta) {
+        yield { provider: providerLabel, reasoning: reasoningDelta };
       }
 
       if (chunk.usage) {
@@ -110,7 +117,8 @@ async function* mergeStreams<A, B>(
 }
 
 export async function POST(request: NextRequest) {
-  const { prompt, providerA, providerB } = await request.json();
+  const { prompt, providerA, providerB, reasoningEffortA, reasoningEffortB } =
+    await request.json();
 
   if (!prompt || !providerA || !providerB) {
     return new Response(
@@ -123,8 +131,8 @@ export async function POST(request: NextRequest) {
 
   const stream = new ReadableStream({
     async start(controller) {
-      const streamA = streamFromProvider(providerA, 'A', prompt);
-      const streamB = streamFromProvider(providerB, 'B', prompt);
+      const streamA = streamFromProvider(providerA, 'A', prompt, reasoningEffortA);
+      const streamB = streamFromProvider(providerB, 'B', prompt, reasoningEffortB);
 
       for await (const chunk of mergeStreams(streamA, streamB)) {
         const data = `data: ${JSON.stringify(chunk)}\n\n`;

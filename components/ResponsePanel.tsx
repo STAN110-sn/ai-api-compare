@@ -1,11 +1,12 @@
 'use client';
 
 import { MetricsDisplay } from './MetricsDisplay';
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, Brain } from 'lucide-react';
 
 interface ResponsePanelProps {
   providerName: string;
   content: string;
+  reasoning?: string;
   isLoading: boolean;
   metrics: {
     latency: number;
@@ -14,6 +15,8 @@ interface ResponsePanelProps {
       prompt: number;
       completion: number;
     } | null;
+    cost: number | null;
+    tokensPerSec: number | null;
   } | null;
   error?: string;
 }
@@ -21,6 +24,7 @@ interface ResponsePanelProps {
 export function ResponsePanel({
   providerName,
   content,
+  reasoning,
   isLoading,
   metrics,
   error,
@@ -47,11 +51,32 @@ export function ResponsePanel({
             <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
             <span>{error}</span>
           </div>
-        ) : content ? (
-          <div className="prose dark:prose-invert prose-sm max-w-none">
-            <pre className="whitespace-pre-wrap font-sans text-sm text-gray-800 dark:text-gray-200">
-              {content}
-            </pre>
+        ) : content || reasoning ? (
+          <div className="flex flex-col gap-3">
+            {reasoning && reasoning.length > 0 && (
+              <details
+                open
+                className="rounded-md border border-purple-200 dark:border-purple-900/50 bg-purple-50/60 dark:bg-purple-950/20"
+              >
+                <summary className="flex cursor-pointer items-center gap-1.5 px-3 py-2 text-xs font-medium text-purple-700 dark:text-purple-300 select-none">
+                  <Brain className="h-3.5 w-3.5" />
+                  <span>Thinking</span>
+                  {isLoading && !content && (
+                    <span className="ml-1 text-purple-500/70 animate-pulse">…</span>
+                  )}
+                </summary>
+                <pre className="whitespace-pre-wrap px-3 pb-3 pt-1 font-sans text-xs italic text-purple-900/80 dark:text-purple-200/70">
+                  {reasoning}
+                </pre>
+              </details>
+            )}
+            {content && (
+              <div className="prose dark:prose-invert prose-sm max-w-none">
+                <pre className="whitespace-pre-wrap font-sans text-sm text-gray-800 dark:text-gray-200">
+                  {content}
+                </pre>
+              </div>
+            )}
           </div>
         ) : (
           <div className="flex h-full items-center justify-center text-sm text-gray-400">
@@ -61,7 +86,7 @@ export function ResponsePanel({
       </div>
 
       {(metrics || isLoading) && (
-        <div className="border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 px-4 py-2">
+        <div className="border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 px-4 py-3">
           <MetricsDisplay metrics={metrics} isLoading={isLoading} />
         </div>
       )}
