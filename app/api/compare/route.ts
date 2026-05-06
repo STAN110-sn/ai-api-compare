@@ -3,13 +3,27 @@ import OpenAI from 'openai';
 import Anthropic from '@anthropic-ai/sdk';
 import { ProviderConfig, ReasoningEffort, StreamChunk } from '@/lib/types';
 
-const EFFORT_TO_BUDGET_TOKENS: Record<ReasoningEffort, number> = {
+const ANTHROPIC_MAX_OUTPUT_TOKENS = 16_384;
+
+// Claude 4.6 / 4.7 (and later) use adaptive thinking with output_config.effort.
+// Older models (Haiku 4.5, anything 4.5 and below) only accept the legacy
+// thinking.enabled shape with explicit budget_tokens.
+const ADAPTIVE_THINKING_PATTERNS = [
+  /^claude-opus-4-[6-9]/,
+  /^claude-sonnet-4-[6-9]/,
+  /^claude-haiku-4-[6-9]/,
+  /^claude-(opus|sonnet|haiku)-[5-9]/,
+];
+
+function supportsAdaptiveThinking(modelId: string): boolean {
+  return ADAPTIVE_THINKING_PATTERNS.some((p) => p.test(modelId));
+}
+
+const LEGACY_EFFORT_TO_BUDGET_TOKENS: Record<ReasoningEffort, number> = {
   low: 2_000,
   medium: 8_000,
   high: 16_000,
 };
-
-const ANTHROPIC_BASE_OUTPUT_TOKENS = 4_096;
 
 function isAnthropicProvider(provider: ProviderConfig): boolean {
   try {
@@ -115,19 +129,29 @@ async function* streamFromAnthropic(
       baseURL: baseUrl,
     });
 
-    const budget = reasoningEffort
-      ? EFFORT_TO_BUDGET_TOKENS[reasoningEffort]
-      : 0;
-    // When extended thinking is enabled, max_tokens must exceed budget_tokens.
-    const maxTokens = budget + ANTHROPIC_BASE_OUTPUT_TOKENS;
+    let thinkingParams: Record<string, unknown> = {};
+    let maxTokens = ANTHROPIC_MAX_OUTPUT_TOKENS;
+    if (reasoningEffort) {
+      if (supportsAdaptiveThinking(provider.model)) {
+        thinkingParams = {
+          thinking: { type: 'adaptive' as const },
+          output_config: { effort: reasoningEffort },
+        };
+      } else {
+        // Legacy enabled-mode requires max_tokens > budget_tokens.
+        const budget = LEGACY_EFFORT_TO_BUDGET_TOKENS[reasoningEffort];
+        thinkingParams = {
+          thinking: { type: 'enabled' as const, budget_tokens: budget },
+        };
+        maxTokens = budget + 4_096;
+      }
+    }
 
     const stream = client.messages.stream({
       model: provider.model,
       max_tokens: maxTokens,
       messages: [{ role: 'user', content: prompt }],
-      ...(reasoningEffort
-        ? { thinking: { type: 'enabled' as const, budget_tokens: budget } }
-        : {}),
+      ...thinkingParams,
     });
 
     for await (const event of stream) {
