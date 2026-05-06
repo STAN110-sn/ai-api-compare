@@ -5,7 +5,7 @@ import { ProviderSelector } from '@/components/ProviderSelector';
 import { PromptInput } from '@/components/PromptInput';
 import { ResponsePanel } from '@/components/ResponsePanel';
 import { ProviderInfo, ReasoningEffort, StreamChunk } from '@/lib/types';
-import { GitCompare } from 'lucide-react';
+import { GitCompare, ChevronsUp, ChevronsDown } from 'lucide-react';
 
 interface ResponseState {
   content: string;
@@ -43,6 +43,7 @@ export default function Home() {
   const [responseA, setResponseA] = useState<ResponseState>(initialResponseState);
   const [responseB, setResponseB] = useState<ResponseState>(initialResponseState);
   const [isComparing, setIsComparing] = useState(false);
+  const [configCollapsed, setConfigCollapsed] = useState(false);
 
   useEffect(() => {
     fetch('/api/providers')
@@ -226,57 +227,79 @@ export default function Home() {
   return (
     <div className="flex flex-col h-screen bg-gray-100 dark:bg-gray-900">
       <header className="border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 px-6 py-4">
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-600">
-            <GitCompare className="h-5 w-5 text-white" />
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-600">
+              <GitCompare className="h-5 w-5 text-white" />
+            </div>
+            <div>
+              <h1 className="text-xl font-bold text-gray-900 dark:text-white">
+                AI Provider Comparison
+              </h1>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                Compare AI inference providers side-by-side
+              </p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-xl font-bold text-gray-900 dark:text-white">
-              AI Provider Comparison
-            </h1>
-            <p className="text-sm text-gray-500 dark:text-gray-400">
-              Compare AI inference providers side-by-side
-            </p>
-          </div>
+          <button
+            type="button"
+            onClick={() => setConfigCollapsed((v) => !v)}
+            className="flex items-center gap-1.5 rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-1.5 text-xs font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800"
+            title={configCollapsed ? 'Show configuration' : 'Hide configuration to expand responses'}
+          >
+            {configCollapsed ? (
+              <>
+                <ChevronsDown className="h-4 w-4" />
+                <span>Show config</span>
+              </>
+            ) : (
+              <>
+                <ChevronsUp className="h-4 w-4" />
+                <span>Expand responses</span>
+              </>
+            )}
+          </button>
         </div>
       </header>
 
       <main className="flex flex-1 flex-col gap-6 p-6 overflow-hidden">
-        <div className="flex flex-col gap-4 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4">
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <ProviderSelector
-              providers={providers}
-              selectedId={providerA}
-              selectedModelId={modelA}
-              onSelectProvider={handleProviderAChange}
-              onSelectModel={handleModelAChange}
-              providerLabel="Provider A"
-              modelLabel="Model A"
-              disabledProviderId={providerB}
-              reasoningEffort={reasoningA}
-              onReasoningEffortChange={setReasoningA}
-            />
-            <ProviderSelector
-              providers={providers}
-              selectedId={providerB}
-              selectedModelId={modelB}
-              onSelectProvider={handleProviderBChange}
-              onSelectModel={handleModelBChange}
-              providerLabel="Provider B"
-              modelLabel="Model B"
-              disabledProviderId={providerA}
-              reasoningEffort={reasoningB}
-              onReasoningEffortChange={setReasoningB}
+        {!configCollapsed && (
+          <div className="flex flex-col gap-4 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <ProviderSelector
+                providers={providers}
+                selectedId={providerA}
+                selectedModelId={modelA}
+                onSelectProvider={handleProviderAChange}
+                onSelectModel={handleModelAChange}
+                providerLabel="Provider A"
+                modelLabel="Model A"
+                disabledProviderId={providerB}
+                reasoningEffort={reasoningA}
+                onReasoningEffortChange={setReasoningA}
+              />
+              <ProviderSelector
+                providers={providers}
+                selectedId={providerB}
+                selectedModelId={modelB}
+                onSelectProvider={handleProviderBChange}
+                onSelectModel={handleModelBChange}
+                providerLabel="Provider B"
+                modelLabel="Model B"
+                disabledProviderId={providerA}
+                reasoningEffort={reasoningB}
+                onReasoningEffortChange={setReasoningB}
+              />
+            </div>
+            <PromptInput
+              value={prompt}
+              onChange={setPrompt}
+              onSubmit={handleCompare}
+              isLoading={isComparing}
+              disabled={!providerA || !providerB}
             />
           </div>
-          <PromptInput
-            value={prompt}
-            onChange={setPrompt}
-            onSubmit={handleCompare}
-            isLoading={isComparing}
-            disabled={!providerA || !providerB}
-          />
-        </div>
+        )}
 
         <div className="grid flex-1 grid-cols-1 gap-4 md:grid-cols-2 min-h-0">
           <ResponsePanel
