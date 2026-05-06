@@ -133,8 +133,11 @@ async function* streamFromAnthropic(
     let maxTokens = ANTHROPIC_MAX_OUTPUT_TOKENS;
     if (reasoningEffort) {
       if (supportsAdaptiveThinking(provider.model)) {
+        // display: 'summarized' is supposed to be the default per docs but
+        // observationally Opus 4.7 only emits signature_delta unless we set
+        // it explicitly — be explicit so we get streamed thinking_delta.
         thinkingParams = {
-          thinking: { type: 'adaptive' as const },
+          thinking: { type: 'adaptive' as const, display: 'summarized' as const },
           output_config: { effort: reasoningEffort },
         };
       } else {
