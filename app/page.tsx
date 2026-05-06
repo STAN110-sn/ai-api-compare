@@ -4,11 +4,12 @@ import { useState, useCallback, useEffect } from 'react';
 import { ProviderSelector } from '@/components/ProviderSelector';
 import { PromptInput } from '@/components/PromptInput';
 import { ResponsePanel } from '@/components/ResponsePanel';
-import { ProviderInfo, StreamChunk } from '@/lib/types';
+import { ProviderInfo, ReasoningEffort, StreamChunk } from '@/lib/types';
 import { GitCompare } from 'lucide-react';
 
 interface ResponseState {
   content: string;
+  reasoning: string;
   isLoading: boolean;
   metrics: {
     latency: number;
@@ -17,12 +18,15 @@ interface ResponseState {
       prompt: number;
       completion: number;
     } | null;
+    cost: number | null;
+    tokensPerSec: number | null;
   } | null;
   error?: string;
 }
 
 const initialResponseState: ResponseState = {
   content: '',
+  reasoning: '',
   isLoading: false,
   metrics: null,
 };
@@ -33,6 +37,8 @@ export default function Home() {
   const [providerB, setProviderB] = useState<string | null>(null);
   const [modelA, setModelA] = useState<string | null>(null);
   const [modelB, setModelB] = useState<string | null>(null);
+  const [reasoningA, setReasoningA] = useState<ReasoningEffort | ''>('');
+  const [reasoningB, setReasoningB] = useState<ReasoningEffort | ''>('');
   const [prompt, setPrompt] = useState('');
   const [responseA, setResponseA] = useState<ResponseState>(initialResponseState);
   const [responseB, setResponseB] = useState<ResponseState>(initialResponseState);
@@ -55,9 +61,10 @@ export default function Home() {
       .catch((err) => console.error('Failed to fetch providers:', err));
   }, []);
 
-  // Update default model when provider changes
+  // Update default model when provider changes; reset reasoning effort.
   const handleProviderAChange = useCallback((id: string) => {
     setProviderA(id);
+    setReasoningA('');
     const provider = providers.find(p => p.id === id);
     if (provider) {
       setModelA(provider.models[0]?.id || null);
@@ -66,14 +73,53 @@ export default function Home() {
 
   const handleProviderBChange = useCallback((id: string) => {
     setProviderB(id);
+    setReasoningB('');
     const provider = providers.find(p => p.id === id);
     if (provider) {
       setModelB(provider.models[0]?.id || null);
     }
   }, [providers]);
 
+  const handleModelAChange = useCallback((id: string) => {
+    setModelA(id);
+    setReasoningA('');
+  }, []);
+
+  const handleModelBChange = useCallback((id: string) => {
+    setModelB(id);
+    setReasoningB('');
+  }, []);
+
   const handleCompare = useCallback(async () => {
     if (!providerA || !providerB || !prompt.trim()) return;
+
+    const modelInfoA = providers
+      .find((p) => p.id === providerA)
+      ?.models.find((m) => m.id === modelA);
+    const modelInfoB = providers
+      .find((p) => p.id === providerB)
+      ?.models.find((m) => m.id === modelB);
+
+    const computeMetrics = (
+      latency: number,
+      tokens: { total: number; prompt: number; completion: number } | undefined,
+      model: typeof modelInfoA
+    ): NonNullable<ResponseState['metrics']> => {
+      const t = tokens || null;
+      let cost: number | null = null;
+      if (
+        t &&
+        model?.inputCostPer1M !== undefined &&
+        model?.outputCostPer1M !== undefined
+      ) {
+        cost =
+          (t.prompt / 1_000_000) * model.inputCostPer1M +
+          (t.completion / 1_000_000) * model.outputCostPer1M;
+      }
+      const tokensPerSec =
+        t && latency > 0 ? t.completion / (latency / 1000) : null;
+      return { latency, tokens: t, cost, tokensPerSec };
+    };
 
     setIsComparing(true);
     setResponseA({ ...initialResponseState, isLoading: true });
@@ -100,6 +146,8 @@ export default function Home() {
           prompt,
           providerA: configA,
           providerB: configB,
+          ...(reasoningA ? { reasoningEffortA: reasoningA } : {}),
+          ...(reasoningB ? { reasoningEffortB: reasoningB } : {}),
         }),
       });
 
@@ -122,51 +170,28 @@ export default function Home() {
             try {
               const data: StreamChunk = JSON.parse(line.slice(6));
 
-              if (data.provider === 'A') {
-                setResponseA((prev) => {
-                  if (data.error) {
-                    return { ...prev, isLoading: false, error: data.error };
-                  }
-                  if (data.done) {
-                    return {
-                      ...prev,
-                      isLoading: false,
-                      metrics: data.latency
-                        ? {
-                            latency: data.latency,
-                            tokens: data.tokens || null,
-                          }
-                        : prev.metrics,
-                    };
-                  }
+              const setter = data.provider === 'A' ? setResponseA : setResponseB;
+              const modelInfo = data.provider === 'A' ? modelInfoA : modelInfoB;
+              setter((prev) => {
+                if (data.error) {
+                  return { ...prev, isLoading: false, error: data.error };
+                }
+                if (data.done) {
                   return {
                     ...prev,
-                    content: prev.content + (data.content || ''),
-                  };
-                });
-              } else {
-                setResponseB((prev) => {
-                  if (data.error) {
-                    return { ...prev, isLoading: false, error: data.error };
-                  }
-                  if (data.done) {
-                    return {
-                      ...prev,
-                      isLoading: false,
-                      metrics: data.latency
-                        ? {
-                            latency: data.latency,
-                            tokens: data.tokens || null,
-                          }
+                    isLoading: false,
+                    metrics:
+                      data.latency !== undefined
+                        ? computeMetrics(data.latency, data.tokens, modelInfo)
                         : prev.metrics,
-                    };
-                  }
-                  return {
-                    ...prev,
-                    content: prev.content + (data.content || ''),
                   };
-                });
-              }
+                }
+                return {
+                  ...prev,
+                  content: prev.content + (data.content || ''),
+                  reasoning: prev.reasoning + (data.reasoning || ''),
+                };
+              });
             } catch (e) {
               console.error('Failed to parse SSE data:', e);
             }
@@ -181,7 +206,7 @@ export default function Home() {
     } finally {
       setIsComparing(false);
     }
-  }, [providerA, providerB, modelA, modelB, prompt]);
+  }, [providerA, providerB, modelA, modelB, prompt, providers, reasoningA, reasoningB]);
 
   const providerAConfig = providers.find((p) => p.id === providerA);
   const providerBConfig = providers.find((p) => p.id === providerB);
@@ -215,20 +240,24 @@ export default function Home() {
               selectedId={providerA}
               selectedModelId={modelA}
               onSelectProvider={handleProviderAChange}
-              onSelectModel={setModelA}
+              onSelectModel={handleModelAChange}
               providerLabel="Provider A"
               modelLabel="Model A"
               disabledProviderId={providerB}
+              reasoningEffort={reasoningA}
+              onReasoningEffortChange={setReasoningA}
             />
             <ProviderSelector
               providers={providers}
               selectedId={providerB}
               selectedModelId={modelB}
               onSelectProvider={handleProviderBChange}
-              onSelectModel={setModelB}
+              onSelectModel={handleModelBChange}
               providerLabel="Provider B"
               modelLabel="Model B"
               disabledProviderId={providerA}
+              reasoningEffort={reasoningB}
+              onReasoningEffortChange={setReasoningB}
             />
           </div>
           <PromptInput
@@ -244,6 +273,7 @@ export default function Home() {
           <ResponsePanel
             providerName={`${providerAConfig?.name || 'Provider A'}${selectedModelAName ? ` (${selectedModelAName})` : ''}`}
             content={responseA.content}
+            reasoning={responseA.reasoning}
             isLoading={responseA.isLoading}
             metrics={responseA.metrics}
             error={responseA.error}
@@ -251,6 +281,7 @@ export default function Home() {
           <ResponsePanel
             providerName={`${providerBConfig?.name || 'Provider B'}${selectedModelBName ? ` (${selectedModelBName})` : ''}`}
             content={responseB.content}
+            reasoning={responseB.reasoning}
             isLoading={responseB.isLoading}
             metrics={responseB.metrics}
             error={responseB.error}

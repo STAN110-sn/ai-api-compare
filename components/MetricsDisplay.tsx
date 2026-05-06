@@ -1,6 +1,6 @@
 'use client';
 
-import { Clock, Hash } from 'lucide-react';
+import { Clock, Hash, DollarSign, Zap } from 'lucide-react';
 
 interface Metrics {
   latency: number;
@@ -9,6 +9,8 @@ interface Metrics {
     prompt: number;
     completion: number;
   } | null;
+  cost: number | null;
+  tokensPerSec: number | null;
 }
 
 interface MetricsDisplayProps {
@@ -16,14 +18,23 @@ interface MetricsDisplayProps {
   isLoading: boolean;
 }
 
+function formatCost(cost: number): string {
+  if (cost === 0) return '$0';
+  if (cost < 0.0001) return '<$0.0001';
+  if (cost < 1) return `$${cost.toFixed(4)}`;
+  return `$${cost.toFixed(2)}`;
+}
+
+function formatLatency(ms: number): string {
+  return ms >= 1000 ? `${(ms / 1000).toFixed(2)}s` : `${ms}ms`;
+}
+
 export function MetricsDisplay({ metrics, isLoading }: MetricsDisplayProps) {
   if (isLoading) {
     return (
-      <div className="flex items-center gap-4 text-xs text-gray-500">
-        <span className="flex items-center gap-1">
-          <Clock className="h-3 w-3" />
-          Measuring...
-        </span>
+      <div className="flex items-center gap-2 text-sm text-gray-500">
+        <Clock className="h-4 w-4 animate-pulse" />
+        <span>Measuring...</span>
       </div>
     );
   }
@@ -32,25 +43,66 @@ export function MetricsDisplay({ metrics, isLoading }: MetricsDisplayProps) {
     return null;
   }
 
+  const tokensTotal = metrics.tokens?.total ?? null;
+  const promptCompletion = metrics.tokens
+    ? `${metrics.tokens.prompt.toLocaleString()} + ${metrics.tokens.completion.toLocaleString()}`
+    : null;
+
+  type Cell = {
+    icon: typeof Clock;
+    label: string;
+    value: string;
+    sub?: string | null;
+  };
+
+  const cells: Cell[] = [
+    {
+      icon: Clock,
+      label: 'Latency',
+      value: formatLatency(metrics.latency),
+    },
+    {
+      icon: Hash,
+      label: 'Tokens',
+      value: tokensTotal !== null ? tokensTotal.toLocaleString() : '—',
+      sub: promptCompletion,
+    },
+    {
+      icon: DollarSign,
+      label: 'Cost',
+      value: metrics.cost !== null ? formatCost(metrics.cost) : '—',
+    },
+    {
+      icon: Zap,
+      label: 'Speed',
+      value:
+        metrics.tokensPerSec !== null
+          ? `${metrics.tokensPerSec.toFixed(1)} tok/s`
+          : '—',
+    },
+  ];
+
   return (
-    <div className="flex flex-wrap items-center gap-4 text-xs">
-      <div className="flex items-center gap-1.5 text-gray-600 dark:text-gray-400">
-        <Clock className="h-3.5 w-3.5" />
-        <span className="font-medium">{metrics.latency}ms</span>
-        <span className="text-gray-400">E2E latency</span>
-      </div>
-      {metrics.tokens && metrics.tokens.total > 0 && (
-        <>
-          <div className="flex items-center gap-1.5 text-gray-600 dark:text-gray-400">
-            <Hash className="h-3.5 w-3.5" />
-            <span className="font-medium">{metrics.tokens.total.toLocaleString()}</span>
-            <span className="text-gray-400">total tokens</span>
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      {cells.map(({ icon: Icon, label, value, sub }) => (
+        <div
+          key={label}
+          className="flex flex-col gap-0.5 rounded-md border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/40 px-3 py-2"
+        >
+          <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400">
+            <Icon className="h-3 w-3" />
+            <span>{label}</span>
           </div>
-          <div className="flex items-center gap-1 text-gray-500">
-            <span>({metrics.tokens.prompt.toLocaleString()} prompt + {metrics.tokens.completion.toLocaleString()} completion)</span>
+          <div className="text-2xl font-semibold tabular-nums text-gray-900 dark:text-gray-100">
+            {value}
           </div>
-        </>
-      )}
+          {sub && (
+            <div className="text-[11px] tabular-nums text-gray-500 dark:text-gray-400">
+              {sub}
+            </div>
+          )}
+        </div>
+      ))}
     </div>
   );
 }

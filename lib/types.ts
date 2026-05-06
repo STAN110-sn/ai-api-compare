@@ -1,6 +1,11 @@
+export type ReasoningEffort = 'low' | 'medium' | 'high';
+
 export interface ModelConfig {
   id: string;
   name: string;
+  inputCostPer1M?: number;
+  outputCostPer1M?: number;
+  supportsReasoning?: boolean;
 }
 
 export interface ProviderConfig {
@@ -22,11 +27,14 @@ export interface ComparisonRequest {
   prompt: string;
   providerA: ProviderConfig;
   providerB: ProviderConfig;
+  reasoningEffortA?: ReasoningEffort;
+  reasoningEffortB?: ReasoningEffort;
 }
 
 export interface StreamChunk {
   provider: 'A' | 'B';
   content?: string;
+  reasoning?: string;
   done?: boolean;
   error?: string;
   latency?: number;

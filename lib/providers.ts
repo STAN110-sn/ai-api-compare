@@ -3,22 +3,30 @@ import { ProviderConfig, ProviderInfo, ModelConfig } from './types';
 function parseModels(modelsEnv: string | undefined): ModelConfig[] {
   if (!modelsEnv) return [];
 
-  // Format: "model-id-1:Display Name 1,model-id-2:Display Name 2"
-  // Or: "model-id-1,model-id-2" (uses ID as display name)
-  return modelsEnv.split(',').map((model, index) => {
-    const parts = model.trim().split(':');
-    if (parts.length >= 2) {
-      return {
-        id: parts[0].trim(),
-        name: parts[1].trim(),
-      };
+  // Format: "id:Name:inputCostPer1M:outputCostPer1M:reasoning"
+  // - All fields after id are optional and may be left empty
+  // - Trailing "reasoning" marker enables reasoning_effort UI for that model
+  // - Costs are USD per 1,000,000 tokens
+  return modelsEnv.split(',').map((model) => {
+    const parts = model.trim().split(':').map((p) => p.trim());
+    const id = parts[0];
+    const name = parts[1] || id;
+    const inputCost = parts[2] ? Number(parts[2]) : undefined;
+    const outputCost = parts[3] ? Number(parts[3]) : undefined;
+    const reasoning = parts[4]?.toLowerCase() === 'reasoning';
+
+    const config: ModelConfig = { id, name };
+    if (inputCost !== undefined && Number.isFinite(inputCost)) {
+      config.inputCostPer1M = inputCost;
     }
-    // If no display name provided, use model ID as name
-    return {
-      id: parts[0].trim(),
-      name: parts[0].trim(),
-    };
-  }).filter(m => m.id);
+    if (outputCost !== undefined && Number.isFinite(outputCost)) {
+      config.outputCostPer1M = outputCost;
+    }
+    if (reasoning) {
+      config.supportsReasoning = true;
+    }
+    return config;
+  }).filter((m) => m.id);
 }
 
 function getDefaultModel(models: ModelConfig[]): string {

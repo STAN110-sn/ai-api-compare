@@ -1,7 +1,7 @@
 'use client';
 
 import { ChevronDown } from 'lucide-react';
-import { ModelConfig } from '@/lib/types';
+import { ModelConfig, ReasoningEffort } from '@/lib/types';
 
 interface Provider {
   id: string;
@@ -18,6 +18,8 @@ interface ProviderSelectorProps {
   providerLabel: string;
   modelLabel: string;
   disabledProviderId?: string | null;
+  reasoningEffort: ReasoningEffort | '';
+  onReasoningEffortChange: (value: ReasoningEffort | '') => void;
 }
 
 export function ProviderSelector({
@@ -29,9 +31,12 @@ export function ProviderSelector({
   providerLabel,
   modelLabel,
   disabledProviderId,
+  reasoningEffort,
+  onReasoningEffortChange,
 }: ProviderSelectorProps) {
   const selectedProvider = providers.find((p) => p.id === selectedId);
   const availableModels = selectedProvider?.models || [];
+  const selectedModel = availableModels.find((m) => m.id === selectedModelId);
 
   return (
     <div className="flex flex-col gap-3">
@@ -82,6 +87,29 @@ export function ProviderSelector({
                   {model.name}
                 </option>
               ))}
+            </select>
+            <ChevronDown className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500 pointer-events-none" />
+          </div>
+        </div>
+      )}
+
+      {selectedModel?.supportsReasoning && (
+        <div className="flex flex-col gap-2">
+          <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+            Reasoning effort
+          </label>
+          <div className="relative">
+            <select
+              value={reasoningEffort}
+              onChange={(e) =>
+                onReasoningEffortChange(e.target.value as ReasoningEffort | '')
+              }
+              className="w-full appearance-none rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-4 py-2.5 pr-10 text-sm text-gray-900 dark:text-gray-100 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+            >
+              <option value="">Off</option>
+              <option value="low">Low</option>
+              <option value="medium">Medium</option>
+              <option value="high">High</option>
             </select>
             <ChevronDown className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500 pointer-events-none" />
           </div>
