@@ -6,6 +6,7 @@ export interface ModelConfig {
   inputCostPer1M?: number;
   outputCostPer1M?: number;
   supportsReasoning?: boolean;
+  defaultReasoningEffort?: ReasoningEffort;
 }
 
 export interface ProviderConfig {

@@ -3,9 +3,10 @@ import { ProviderConfig, ProviderInfo, ModelConfig } from './types';
 function parseModels(modelsEnv: string | undefined): ModelConfig[] {
   if (!modelsEnv) return [];
 
-  // Format: "id:Name:inputCostPer1M:outputCostPer1M:reasoning"
+  // Format: "id:Name:inputCostPer1M:outputCostPer1M:reasoning[=low|medium|high]"
   // - All fields after id are optional and may be left empty
-  // - Trailing "reasoning" marker enables reasoning_effort UI for that model
+  // - "reasoning" enables the reasoning_effort UI for that model
+  // - "reasoning=high" also pre-selects High as the default level
   // - Costs are USD per 1,000,000 tokens
   return modelsEnv.split(',').map((model) => {
     const parts = model.trim().split(':').map((p) => p.trim());
@@ -13,7 +14,8 @@ function parseModels(modelsEnv: string | undefined): ModelConfig[] {
     const name = parts[1] || id;
     const inputCost = parts[2] ? Number(parts[2]) : undefined;
     const outputCost = parts[3] ? Number(parts[3]) : undefined;
-    const reasoning = parts[4]?.toLowerCase() === 'reasoning';
+    const reasoningField = parts[4]?.toLowerCase() ?? '';
+    const reasoningMatch = /^reasoning(?:=(low|medium|high))?$/.exec(reasoningField);
 
     const config: ModelConfig = { id, name };
     if (inputCost !== undefined && Number.isFinite(inputCost)) {
@@ -22,8 +24,11 @@ function parseModels(modelsEnv: string | undefined): ModelConfig[] {
     if (outputCost !== undefined && Number.isFinite(outputCost)) {
       config.outputCostPer1M = outputCost;
     }
-    if (reasoning) {
+    if (reasoningMatch) {
       config.supportsReasoning = true;
+      if (reasoningMatch[1]) {
+        config.defaultReasoningEffort = reasoningMatch[1] as 'low' | 'medium' | 'high';
+      }
     }
     return config;
   }).filter((m) => m.id);
