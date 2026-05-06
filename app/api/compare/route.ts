@@ -12,7 +12,12 @@ const EFFORT_TO_BUDGET_TOKENS: Record<ReasoningEffort, number> = {
 const ANTHROPIC_BASE_OUTPUT_TOKENS = 4_096;
 
 function isAnthropicProvider(provider: ProviderConfig): boolean {
-  return /(^|\.)api\.anthropic\.com($|\/)/i.test(provider.baseUrl);
+  try {
+    const host = new URL(provider.baseUrl).hostname.toLowerCase();
+    return host === 'api.anthropic.com' || host.endsWith('.anthropic.com');
+  } catch {
+    return false;
+  }
 }
 
 async function* streamFromProvider(
@@ -102,9 +107,12 @@ async function* streamFromAnthropic(
   let completionTokens = 0;
 
   try {
+    // Anthropic SDK appends /v1/* paths itself. The OpenAI-compat baseUrl ends
+    // in /v1, so strip it before handing it to the native SDK.
+    const baseUrl = provider.baseUrl.replace(/\/v1\/?$/, '');
     const client = new Anthropic({
       apiKey: provider.apiKey,
-      baseURL: provider.baseUrl,
+      baseURL: baseUrl,
     });
 
     const budget = reasoningEffort
