@@ -25,6 +25,15 @@ const LEGACY_EFFORT_TO_BUDGET_TOKENS: Record<ReasoningEffort, number> = {
   high: 16_000,
 };
 
+function isOpenAIProvider(provider: ProviderConfig): boolean {
+  try {
+    const host = new URL(provider.baseUrl).hostname.toLowerCase();
+    return host === 'api.openai.com' || host.endsWith('.openai.com');
+  } catch {
+    return false;
+  }
+}
+
 function isAnthropicProvider(provider: ProviderConfig): boolean {
   try {
     const host = new URL(provider.baseUrl).hostname.toLowerCase();
@@ -206,15 +215,90 @@ async function* streamFromAnthropic(
   }
 }
 
+async function* streamFromOpenAIResponses(
+  provider: ProviderConfig,
+  providerLabel: 'A' | 'B',
+  prompt: string,
+  reasoningEffort: ReasoningEffort
+): AsyncGenerator<StreamChunk> {
+  const startTime = Date.now();
+  let promptTokens = 0;
+  let completionTokens = 0;
+
+  try {
+    const client = new OpenAI({
+      apiKey: provider.apiKey,
+      baseURL: provider.baseUrl,
+    });
+
+    const stream = await client.responses.create({
+      model: provider.model,
+      input: prompt,
+      stream: true,
+      reasoning: { effort: reasoningEffort, summary: 'auto' },
+    });
+
+    for await (const event of stream) {
+      if (event.type === 'response.output_text.delta') {
+        if (event.delta) {
+          yield { provider: providerLabel, content: event.delta };
+        }
+      } else if (event.type === 'response.reasoning_summary_text.delta') {
+        if (event.delta) {
+          yield { provider: providerLabel, reasoning: event.delta };
+        }
+      } else if (event.type === 'response.completed') {
+        const usage = event.response.usage;
+        if (usage) {
+          promptTokens = usage.input_tokens || 0;
+          completionTokens = usage.output_tokens || 0;
+        }
+      }
+    }
+
+    const latency = Date.now() - startTime;
+    yield {
+      provider: providerLabel,
+      done: true,
+      latency,
+      tokens: {
+        total: promptTokens + completionTokens,
+        prompt: promptTokens,
+        completion: completionTokens,
+      },
+    };
+  } catch (error) {
+    const latency = Date.now() - startTime;
+    yield {
+      provider: providerLabel,
+      error: error instanceof Error ? error.message : 'Unknown error',
+      done: true,
+      latency,
+      tokens: {
+        total: promptTokens + completionTokens,
+        prompt: promptTokens,
+        completion: completionTokens,
+      },
+    };
+  }
+}
+
 function dispatchStream(
   provider: ProviderConfig,
   providerLabel: 'A' | 'B',
   prompt: string,
   reasoningEffort?: ReasoningEffort
 ): AsyncGenerator<StreamChunk> {
-  return isAnthropicProvider(provider)
-    ? streamFromAnthropic(provider, providerLabel, prompt, reasoningEffort)
-    : streamFromProvider(provider, providerLabel, prompt, reasoningEffort);
+  if (isAnthropicProvider(provider)) {
+    return streamFromAnthropic(provider, providerLabel, prompt, reasoningEffort);
+  }
+  // OpenAI exposes reasoning content only via the Responses API; chat
+  // completions strips it. So when effort is requested against api.openai.com,
+  // route through Responses to surface thinking summaries.
+  if (reasoningEffort && isOpenAIProvider(provider)) {
+    return streamFromOpenAIResponses(provider, providerLabel, prompt, reasoningEffort);
+  }
+  return streamFromProvider(provider, providerLabel, prompt, reasoningEffort);
 }
 
 async function* mergeStreams<A, B>(
