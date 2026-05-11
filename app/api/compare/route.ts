@@ -47,7 +47,8 @@ async function* streamFromProvider(
   provider: ProviderConfig,
   providerLabel: 'A' | 'B',
   prompt: string,
-  reasoningEffort?: ReasoningEffort
+  reasoningEffort?: ReasoningEffort,
+  signal?: AbortSignal
 ): AsyncGenerator<StreamChunk> {
   const startTime = Date.now();
   let content = '';
@@ -61,13 +62,16 @@ async function* streamFromProvider(
       baseURL: provider.baseUrl,
     });
 
-    const stream = await client.chat.completions.create({
-      model: provider.model,
-      messages: [{ role: 'user', content: prompt }],
-      stream: true,
-      stream_options: { include_usage: true },
-      ...(reasoningEffort ? { reasoning_effort: reasoningEffort } : {}),
-    });
+    const stream = await client.chat.completions.create(
+      {
+        model: provider.model,
+        messages: [{ role: 'user', content: prompt }],
+        stream: true,
+        stream_options: { include_usage: true },
+        ...(reasoningEffort ? { reasoning_effort: reasoningEffort } : {}),
+      },
+      { signal }
+    );
 
     for await (const chunk of stream) {
       const delta = chunk.choices[0]?.delta as
@@ -123,7 +127,8 @@ async function* streamFromAnthropic(
   provider: ProviderConfig,
   providerLabel: 'A' | 'B',
   prompt: string,
-  reasoningEffort?: ReasoningEffort
+  reasoningEffort?: ReasoningEffort,
+  signal?: AbortSignal
 ): AsyncGenerator<StreamChunk> {
   const startTime = Date.now();
   let promptTokens = 0;
@@ -159,12 +164,15 @@ async function* streamFromAnthropic(
       }
     }
 
-    const stream = client.messages.stream({
-      model: provider.model,
-      max_tokens: maxTokens,
-      messages: [{ role: 'user', content: prompt }],
-      ...thinkingParams,
-    });
+    const stream = client.messages.stream(
+      {
+        model: provider.model,
+        max_tokens: maxTokens,
+        messages: [{ role: 'user', content: prompt }],
+        ...thinkingParams,
+      },
+      { signal }
+    );
 
     for await (const event of stream) {
       if (event.type === 'content_block_delta') {
@@ -219,7 +227,8 @@ async function* streamFromOpenAIResponses(
   provider: ProviderConfig,
   providerLabel: 'A' | 'B',
   prompt: string,
-  reasoningEffort: ReasoningEffort
+  reasoningEffort: ReasoningEffort,
+  signal?: AbortSignal
 ): AsyncGenerator<StreamChunk> {
   const startTime = Date.now();
   let promptTokens = 0;
@@ -231,12 +240,15 @@ async function* streamFromOpenAIResponses(
       baseURL: provider.baseUrl,
     });
 
-    const stream = await client.responses.create({
-      model: provider.model,
-      input: prompt,
-      stream: true,
-      reasoning: { effort: reasoningEffort, summary: 'auto' },
-    });
+    const stream = await client.responses.create(
+      {
+        model: provider.model,
+        input: prompt,
+        stream: true,
+        reasoning: { effort: reasoningEffort, summary: 'auto' },
+      },
+      { signal }
+    );
 
     for await (const event of stream) {
       if (event.type === 'response.output_text.delta') {
@@ -287,18 +299,19 @@ function dispatchStream(
   provider: ProviderConfig,
   providerLabel: 'A' | 'B',
   prompt: string,
-  reasoningEffort?: ReasoningEffort
+  reasoningEffort?: ReasoningEffort,
+  signal?: AbortSignal
 ): AsyncGenerator<StreamChunk> {
   if (isAnthropicProvider(provider)) {
-    return streamFromAnthropic(provider, providerLabel, prompt, reasoningEffort);
+    return streamFromAnthropic(provider, providerLabel, prompt, reasoningEffort, signal);
   }
   // OpenAI exposes reasoning content only via the Responses API; chat
   // completions strips it. So when effort is requested against api.openai.com,
   // route through Responses to surface thinking summaries.
   if (reasoningEffort && isOpenAIProvider(provider)) {
-    return streamFromOpenAIResponses(provider, providerLabel, prompt, reasoningEffort);
+    return streamFromOpenAIResponses(provider, providerLabel, prompt, reasoningEffort, signal);
   }
-  return streamFromProvider(provider, providerLabel, prompt, reasoningEffort);
+  return streamFromProvider(provider, providerLabel, prompt, reasoningEffort, signal);
 }
 
 async function* mergeStreams<A, B>(
@@ -351,18 +364,23 @@ export async function POST(request: NextRequest) {
   }
 
   const encoder = new TextEncoder();
+  const signal = request.signal;
 
   const stream = new ReadableStream({
     async start(controller) {
-      const streamA = dispatchStream(providerA, 'A', prompt, reasoningEffortA);
-      const streamB = dispatchStream(providerB, 'B', prompt, reasoningEffortB);
+      const streamA = dispatchStream(providerA, 'A', prompt, reasoningEffortA, signal);
+      const streamB = dispatchStream(providerB, 'B', prompt, reasoningEffortB, signal);
 
-      for await (const chunk of mergeStreams(streamA, streamB)) {
-        const data = `data: ${JSON.stringify(chunk)}\n\n`;
-        controller.enqueue(encoder.encode(data));
+      try {
+        for await (const chunk of mergeStreams(streamA, streamB)) {
+          if (signal.aborted) break;
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify(chunk)}\n\n`));
+        }
+      } catch {
+        // Client disconnect or upstream abort — stop streaming.
+      } finally {
+        try { controller.close(); } catch { /* already closed */ }
       }
-
-      controller.close();
     },
   });
 
