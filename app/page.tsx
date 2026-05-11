@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { ProviderSelector } from '@/components/ProviderSelector';
 import { PromptInput } from '@/components/PromptInput';
 import { ResponsePanel } from '@/components/ResponsePanel';
@@ -11,6 +11,7 @@ interface ResponseState {
   content: string;
   reasoning: string;
   isLoading: boolean;
+  stopped?: boolean;
   metrics: {
     latency: number;
     tokens: {
@@ -46,6 +47,7 @@ export default function Home() {
   const [responseB, setResponseB] = useState<ResponseState>(initialResponseState);
   const [isComparing, setIsComparing] = useState(false);
   const [configCollapsed, setConfigCollapsed] = useState(false);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     fetch('/api/providers')
@@ -137,6 +139,10 @@ export default function Home() {
       return { latency, tokens: t, cost, tokensPerSec };
     };
 
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+    const { signal } = controller;
+
     setIsComparing(true);
     setResponseA({ ...initialResponseState, isLoading: true });
     setResponseB({ ...initialResponseState, isLoading: true });
@@ -151,6 +157,7 @@ export default function Home() {
           modelAId: modelA,
           modelBId: modelB,
         }),
+        signal,
       });
 
       const { providerA: configA, providerB: configB } = await configsRes.json();
@@ -167,6 +174,7 @@ export default function Home() {
           ...(disableThinkingA ? { disableThinkingA: true } : {}),
           ...(disableThinkingB ? { disableThinkingB: true } : {}),
         }),
+        signal,
       });
 
       const reader = response.body?.getReader();
@@ -217,14 +225,33 @@ export default function Home() {
         }
       }
     } catch (error) {
-      console.error('Comparison failed:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      setResponseA((prev) => ({ ...prev, isLoading: false, error: errorMessage }));
-      setResponseB((prev) => ({ ...prev, isLoading: false, error: errorMessage }));
+      const aborted =
+        signal.aborted ||
+        (error instanceof DOMException && error.name === 'AbortError');
+      if (aborted) {
+        setResponseA((prev) =>
+          prev.isLoading ? { ...prev, isLoading: false, stopped: true } : prev
+        );
+        setResponseB((prev) =>
+          prev.isLoading ? { ...prev, isLoading: false, stopped: true } : prev
+        );
+      } else {
+        console.error('Comparison failed:', error);
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        setResponseA((prev) => ({ ...prev, isLoading: false, error: errorMessage }));
+        setResponseB((prev) => ({ ...prev, isLoading: false, error: errorMessage }));
+      }
     } finally {
       setIsComparing(false);
+      if (abortControllerRef.current === controller) {
+        abortControllerRef.current = null;
+      }
     }
   }, [providerA, providerB, modelA, modelB, prompt, providers, reasoningA, reasoningB, disableThinkingA, disableThinkingB]);
+
+  const handleStop = useCallback(() => {
+    abortControllerRef.current?.abort();
+  }, []);
 
   const providerAConfig = providers.find((p) => p.id === providerA);
   const providerBConfig = providers.find((p) => p.id === providerB);
@@ -305,6 +332,7 @@ export default function Home() {
               value={prompt}
               onChange={setPrompt}
               onSubmit={handleCompare}
+              onStop={handleStop}
               isLoading={isComparing}
               disabled={!providerA || !providerB}
             />
@@ -317,6 +345,7 @@ export default function Home() {
             content={responseA.content}
             reasoning={responseA.reasoning}
             isLoading={responseA.isLoading}
+            stopped={responseA.stopped}
             metrics={responseA.metrics}
             error={responseA.error}
           />
@@ -325,6 +354,7 @@ export default function Home() {
             content={responseB.content}
             reasoning={responseB.reasoning}
             isLoading={responseB.isLoading}
+            stopped={responseB.stopped}
             metrics={responseB.metrics}
             error={responseB.error}
           />
