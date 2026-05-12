@@ -87,13 +87,13 @@ export function MetricsDisplay({ metrics, isLoading }: MetricsDisplayProps) {
       {cells.map(({ icon: Icon, label, value, sub }) => (
         <div
           key={label}
-          className="flex flex-col gap-0.5 rounded-md border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/40 px-3 py-2"
+          className="flex flex-col gap-0.5 rounded-md border border-christmas-gold/40 bg-white dark:bg-[#0f2a1d] px-3 py-2"
         >
-          <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400">
-            <Icon className="h-3 w-3" />
+          <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-christmas-green-dark dark:text-emerald-200/80">
+            <Icon className="h-3 w-3 text-christmas-red" />
             <span>{label}</span>
           </div>
-          <div className="text-2xl font-semibold tabular-nums text-gray-900 dark:text-gray-100">
+          <div className="text-2xl font-semibold tabular-nums text-christmas-red-dark dark:text-gray-100">
             {value}
           </div>
           {sub && (

@@ -30,14 +30,14 @@ export function ResponsePanel({
   error,
 }: ResponsePanelProps) {
   return (
-    <div className="flex flex-col h-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 overflow-hidden">
-      <div className="flex items-center justify-between border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 px-4 py-3">
-        <h3 className="font-semibold text-gray-900 dark:text-gray-100">
+    <div className="flex flex-col h-full rounded-lg border border-christmas-green/30 dark:border-christmas-gold/30 bg-white dark:bg-[#0f2a1d] overflow-hidden shadow-sm">
+      <div className="flex items-center justify-between border-b border-christmas-gold/40 bg-[#fbeee0] dark:bg-[#143626] px-4 py-3">
+        <h3 className="font-semibold text-christmas-red-dark dark:text-emerald-100">
           {providerName}
         </h3>
         <div className="flex items-center gap-2">
           {isLoading && (
-            <div className="h-2 w-2 animate-pulse rounded-full bg-blue-500" />
+            <div className="h-2 w-2 animate-pulse rounded-full bg-christmas-red" />
           )}
           <span className="text-xs text-gray-500">
             {isLoading ? 'Streaming...' : content ? 'Complete' : 'Waiting...'}
@@ -86,7 +86,7 @@ export function ResponsePanel({
       </div>
 
       {(metrics || isLoading) && (
-        <div className="border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 px-4 py-3">
+        <div className="border-t border-christmas-gold/40 bg-[#fbeee0] dark:bg-[#143626] px-4 py-3">
           <MetricsDisplay metrics={metrics} isLoading={isLoading} />
         </div>
       )}

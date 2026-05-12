@@ -35,7 +35,7 @@ export function PromptInput({
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-2">
-      <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+      <label className="text-sm font-medium text-christmas-green-dark dark:text-emerald-100">
         Prompt
       </label>
       <div className="flex gap-2">
@@ -45,13 +45,13 @@ export function PromptInput({
           onKeyDown={handleKeyDown}
           placeholder="Enter your prompt here..."
           rows={3}
-          className="flex-1 resize-none rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-4 py-3 text-sm text-gray-900 dark:text-gray-100 placeholder:text-gray-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+          className="flex-1 resize-none rounded-lg border border-christmas-green/30 dark:border-christmas-gold/30 bg-white dark:bg-[#0f2a1d] px-4 py-3 text-sm text-gray-900 dark:text-gray-100 placeholder:text-gray-400 focus:border-christmas-red focus:outline-none focus:ring-2 focus:ring-christmas-red/20"
           disabled={isLoading}
         />
         <button
           type="submit"
           disabled={disabled || isLoading || !value.trim()}
-          className="flex items-center justify-center rounded-lg bg-blue-600 px-6 text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-400 disabled:opacity-50"
+          className="flex items-center justify-center rounded-lg bg-christmas-green px-6 text-white ring-2 ring-christmas-gold/50 transition-colors hover:bg-christmas-green-dark disabled:cursor-not-allowed disabled:bg-gray-400 disabled:ring-transparent disabled:opacity-50"
         >
           {isLoading ? (
             <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />

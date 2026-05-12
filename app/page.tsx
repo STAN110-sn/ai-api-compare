@@ -225,18 +225,18 @@ export default function Home() {
   const selectedModelBName = providerBConfig?.models.find(m => m.id === modelB)?.name || modelB;
 
   return (
-    <div className="flex flex-col h-screen bg-gray-100 dark:bg-gray-900">
-      <header className="border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 px-6 py-4">
+    <div className="flex flex-col h-screen bg-[#fdf8f3] dark:bg-[#0b1d14]">
+      <header className="border-b-2 border-christmas-gold/40 dark:border-christmas-gold/30 bg-white dark:bg-[#0b1d14] px-6 py-4">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-600">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-christmas-red ring-2 ring-christmas-gold/60">
               <GitCompare className="h-5 w-5 text-white" />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-gray-900 dark:text-white">
+              <h1 className="text-xl font-bold text-christmas-red-dark dark:text-white">
                 AI Provider Comparison
               </h1>
-              <p className="text-sm text-gray-500 dark:text-gray-400">
+              <p className="text-sm text-christmas-green-dark dark:text-emerald-200/80">
                 Compare AI inference providers side-by-side
               </p>
             </div>
@@ -244,7 +244,7 @@ export default function Home() {
           <button
             type="button"
             onClick={() => setConfigCollapsed((v) => !v)}
-            className="flex items-center gap-1.5 rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-1.5 text-xs font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800"
+            className="flex items-center gap-1.5 rounded-md border border-christmas-green/30 dark:border-christmas-gold/30 bg-white dark:bg-[#0f2a1d] px-3 py-1.5 text-xs font-medium text-christmas-green-dark dark:text-emerald-100 hover:bg-emerald-50 dark:hover:bg-[#143626]"
             title={configCollapsed ? 'Show configuration' : 'Hide configuration to expand responses'}
           >
             {configCollapsed ? (
@@ -264,7 +264,7 @@ export default function Home() {
 
       <main className="flex flex-1 flex-col gap-6 p-6 overflow-hidden">
         {!configCollapsed && (
-          <div className="flex flex-col gap-4 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4">
+          <div className="flex flex-col gap-4 rounded-lg border border-christmas-green/30 dark:border-christmas-gold/30 bg-white dark:bg-[#0f2a1d] p-4 shadow-sm">
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <ProviderSelector
                 providers={providers}
