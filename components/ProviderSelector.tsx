@@ -41,14 +41,14 @@ export function ProviderSelector({
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-col gap-2">
-        <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+        <label className="text-sm font-medium text-christmas-green-dark dark:text-emerald-100">
           {providerLabel}
         </label>
         <div className="relative">
           <select
             value={selectedId || ''}
             onChange={(e) => onSelectProvider(e.target.value)}
-            className="w-full appearance-none rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-4 py-2.5 pr-10 text-sm text-gray-900 dark:text-gray-100 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+            className="w-full appearance-none rounded-lg border border-christmas-green/30 dark:border-christmas-gold/30 bg-white dark:bg-[#0f2a1d] px-4 py-2.5 pr-10 text-sm text-gray-900 dark:text-gray-100 focus:border-christmas-red focus:outline-none focus:ring-2 focus:ring-christmas-red/20"
           >
             <option value="" disabled>
               Select a provider
@@ -69,7 +69,7 @@ export function ProviderSelector({
 
       {availableModels.length > 0 && (
         <div className="flex flex-col gap-2">
-          <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+          <label className="text-sm font-medium text-christmas-green-dark dark:text-emerald-100">
             {modelLabel}
           </label>
           <div className="relative">
@@ -77,7 +77,7 @@ export function ProviderSelector({
               value={selectedModelId || ''}
               onChange={(e) => onSelectModel(e.target.value)}
               disabled={!selectedId}
-              className="w-full appearance-none rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-4 py-2.5 pr-10 text-sm text-gray-900 dark:text-gray-100 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 disabled:bg-gray-100 disabled:opacity-50"
+              className="w-full appearance-none rounded-lg border border-christmas-green/30 dark:border-christmas-gold/30 bg-white dark:bg-[#0f2a1d] px-4 py-2.5 pr-10 text-sm text-gray-900 dark:text-gray-100 focus:border-christmas-red focus:outline-none focus:ring-2 focus:ring-christmas-red/20 disabled:bg-gray-100 disabled:opacity-50"
             >
               <option value="" disabled>
                 Select a model
@@ -95,7 +95,7 @@ export function ProviderSelector({
 
       {selectedModel?.supportsReasoning && (
         <div className="flex flex-col gap-2">
-          <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+          <label className="text-sm font-medium text-christmas-green-dark dark:text-emerald-100">
             Reasoning effort
           </label>
           <div className="relative">
@@ -104,7 +104,7 @@ export function ProviderSelector({
               onChange={(e) =>
                 onReasoningEffortChange(e.target.value as ReasoningEffort | '')
               }
-              className="w-full appearance-none rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-4 py-2.5 pr-10 text-sm text-gray-900 dark:text-gray-100 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+              className="w-full appearance-none rounded-lg border border-christmas-green/30 dark:border-christmas-gold/30 bg-white dark:bg-[#0f2a1d] px-4 py-2.5 pr-10 text-sm text-gray-900 dark:text-gray-100 focus:border-christmas-red focus:outline-none focus:ring-2 focus:ring-christmas-red/20"
             >
               <option value="">Off</option>
               <option value="low">Low</option>
