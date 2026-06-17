@@ -43,11 +43,19 @@ function isAnthropicProvider(provider: ProviderConfig): boolean {
   }
 }
 
+// chat_template_kwargs is an ai&/vLLM extension that the OpenAI SDK doesn't
+// type. Intersect it onto the params so we can send it without `any`.
+type ChatCompletionCreateParamsWithThinking =
+  OpenAI.Chat.Completions.ChatCompletionCreateParamsStreaming & {
+    chat_template_kwargs?: { enable_thinking?: boolean };
+  };
+
 async function* streamFromProvider(
   provider: ProviderConfig,
   providerLabel: 'A' | 'B',
   prompt: string,
-  reasoningEffort?: ReasoningEffort
+  reasoningEffort?: ReasoningEffort,
+  disableThinking?: boolean
 ): AsyncGenerator<StreamChunk> {
   const startTime = Date.now();
   let content = '';
@@ -61,13 +69,17 @@ async function* streamFromProvider(
       baseURL: provider.baseUrl,
     });
 
-    const stream = await client.chat.completions.create({
+    const params: ChatCompletionCreateParamsWithThinking = {
       model: provider.model,
       messages: [{ role: 'user', content: prompt }],
       stream: true,
       stream_options: { include_usage: true },
       ...(reasoningEffort ? { reasoning_effort: reasoningEffort } : {}),
-    });
+      // Turn off the model's reasoning output (ai& Qwen/Gemma chat template).
+      ...(disableThinking ? { chat_template_kwargs: { enable_thinking: false } } : {}),
+    };
+
+    const stream = await client.chat.completions.create(params);
 
     for await (const chunk of stream) {
       const delta = chunk.choices[0]?.delta as
@@ -287,7 +299,8 @@ function dispatchStream(
   provider: ProviderConfig,
   providerLabel: 'A' | 'B',
   prompt: string,
-  reasoningEffort?: ReasoningEffort
+  reasoningEffort?: ReasoningEffort,
+  disableThinking?: boolean
 ): AsyncGenerator<StreamChunk> {
   if (isAnthropicProvider(provider)) {
     return streamFromAnthropic(provider, providerLabel, prompt, reasoningEffort);
@@ -298,7 +311,7 @@ function dispatchStream(
   if (reasoningEffort && isOpenAIProvider(provider)) {
     return streamFromOpenAIResponses(provider, providerLabel, prompt, reasoningEffort);
   }
-  return streamFromProvider(provider, providerLabel, prompt, reasoningEffort);
+  return streamFromProvider(provider, providerLabel, prompt, reasoningEffort, disableThinking);
 }
 
 async function* mergeStreams<A, B>(
@@ -340,8 +353,15 @@ async function* mergeStreams<A, B>(
 }
 
 export async function POST(request: NextRequest) {
-  const { prompt, providerA, providerB, reasoningEffortA, reasoningEffortB } =
-    await request.json();
+  const {
+    prompt,
+    providerA,
+    providerB,
+    reasoningEffortA,
+    reasoningEffortB,
+    disableThinkingA,
+    disableThinkingB,
+  } = await request.json();
 
   if (!prompt || !providerA || !providerB) {
     return new Response(
@@ -354,8 +374,8 @@ export async function POST(request: NextRequest) {
 
   const stream = new ReadableStream({
     async start(controller) {
-      const streamA = dispatchStream(providerA, 'A', prompt, reasoningEffortA);
-      const streamB = dispatchStream(providerB, 'B', prompt, reasoningEffortB);
+      const streamA = dispatchStream(providerA, 'A', prompt, reasoningEffortA, disableThinkingA);
+      const streamB = dispatchStream(providerB, 'B', prompt, reasoningEffortB, disableThinkingB);
 
       for await (const chunk of mergeStreams(streamA, streamB)) {
         const data = `data: ${JSON.stringify(chunk)}\n\n`;

@@ -39,6 +39,8 @@ export default function Home() {
   const [modelB, setModelB] = useState<string | null>(null);
   const [reasoningA, setReasoningA] = useState<ReasoningEffort | ''>('');
   const [reasoningB, setReasoningB] = useState<ReasoningEffort | ''>('');
+  const [disableThinkingA, setDisableThinkingA] = useState(false);
+  const [disableThinkingB, setDisableThinkingB] = useState(false);
   const [prompt, setPrompt] = useState('');
   const [responseA, setResponseA] = useState<ResponseState>(initialResponseState);
   const [responseB, setResponseB] = useState<ResponseState>(initialResponseState);
@@ -74,6 +76,7 @@ export default function Home() {
     const firstModel = provider?.models[0];
     setModelA(firstModel?.id || null);
     setReasoningA(firstModel?.defaultReasoningEffort ?? '');
+    setDisableThinkingA(false);
   }, [providers]);
 
   const handleProviderBChange = useCallback((id: string) => {
@@ -82,6 +85,7 @@ export default function Home() {
     const firstModel = provider?.models[0];
     setModelB(firstModel?.id || null);
     setReasoningB(firstModel?.defaultReasoningEffort ?? '');
+    setDisableThinkingB(false);
   }, [providers]);
 
   const handleModelAChange = useCallback((id: string) => {
@@ -90,6 +94,7 @@ export default function Home() {
       .find((p) => p.id === providerA)
       ?.models.find((m) => m.id === id);
     setReasoningA(model?.defaultReasoningEffort ?? '');
+    setDisableThinkingA(false);
   }, [providers, providerA]);
 
   const handleModelBChange = useCallback((id: string) => {
@@ -98,6 +103,7 @@ export default function Home() {
       .find((p) => p.id === providerB)
       ?.models.find((m) => m.id === id);
     setReasoningB(model?.defaultReasoningEffort ?? '');
+    setDisableThinkingB(false);
   }, [providers, providerB]);
 
   const handleCompare = useCallback(async () => {
@@ -158,6 +164,8 @@ export default function Home() {
           providerB: configB,
           ...(reasoningA ? { reasoningEffortA: reasoningA } : {}),
           ...(reasoningB ? { reasoningEffortB: reasoningB } : {}),
+          ...(disableThinkingA ? { disableThinkingA: true } : {}),
+          ...(disableThinkingB ? { disableThinkingB: true } : {}),
         }),
       });
 
@@ -216,7 +224,7 @@ export default function Home() {
     } finally {
       setIsComparing(false);
     }
-  }, [providerA, providerB, modelA, modelB, prompt, providers, reasoningA, reasoningB]);
+  }, [providerA, providerB, modelA, modelB, prompt, providers, reasoningA, reasoningB, disableThinkingA, disableThinkingB]);
 
   const providerAConfig = providers.find((p) => p.id === providerA);
   const providerBConfig = providers.find((p) => p.id === providerB);
@@ -277,6 +285,8 @@ export default function Home() {
                 disabledProviderId={providerB}
                 reasoningEffort={reasoningA}
                 onReasoningEffortChange={setReasoningA}
+                disableThinking={disableThinkingA}
+                onDisableThinkingChange={setDisableThinkingA}
               />
               <ProviderSelector
                 providers={providers}
@@ -289,6 +299,8 @@ export default function Home() {
                 disabledProviderId={providerA}
                 reasoningEffort={reasoningB}
                 onReasoningEffortChange={setReasoningB}
+                disableThinking={disableThinkingB}
+                onDisableThinkingChange={setDisableThinkingB}
               />
             </div>
             <PromptInput
