@@ -17,7 +17,6 @@ interface ProviderSelectorProps {
   onSelectModel: (modelId: string) => void;
   providerLabel: string;
   modelLabel: string;
-  disabledProviderId?: string | null;
   reasoningEffort: ReasoningEffort | '';
   onReasoningEffortChange: (value: ReasoningEffort | '') => void;
   disableThinking: boolean;
@@ -32,7 +31,6 @@ export function ProviderSelector({
   onSelectModel,
   providerLabel,
   modelLabel,
-  disabledProviderId,
   reasoningEffort,
   onReasoningEffortChange,
   disableThinking,
@@ -58,12 +56,8 @@ export function ProviderSelector({
               Select a provider
             </option>
             {providers.map((provider) => (
-              <option
-                key={provider.id}
-                value={provider.id}
-                disabled={provider.id === disabledProviderId}
-              >
-                {provider.name} {provider.id === disabledProviderId ? '(selected)' : ''}
+              <option key={provider.id} value={provider.id}>
+                {provider.name}
               </option>
             ))}
           </select>

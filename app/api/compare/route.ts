@@ -43,10 +43,12 @@ function isAnthropicProvider(provider: ProviderConfig): boolean {
   }
 }
 
-// chat_template_kwargs is an ai&/vLLM extension that the OpenAI SDK doesn't
-// type. Intersect it onto the params so we can send it without `any`.
+// chat_template_kwargs (ai&/vLLM) and reasoning_effort:"none" (xAI Grok) are
+// provider extensions the OpenAI SDK doesn't type. Widen the params so we can
+// send them without `any`.
 type ChatCompletionCreateParamsWithThinking =
-  OpenAI.Chat.Completions.ChatCompletionCreateParamsStreaming & {
+  Omit<OpenAI.Chat.Completions.ChatCompletionCreateParamsStreaming, 'reasoning_effort'> & {
+    reasoning_effort?: ReasoningEffort | 'none';
     chat_template_kwargs?: { enable_thinking?: boolean };
   };
 
@@ -75,11 +77,25 @@ async function* streamFromProvider(
       stream: true,
       stream_options: { include_usage: true },
       ...(reasoningEffort ? { reasoning_effort: reasoningEffort } : {}),
-      // Turn off the model's reasoning output (ai& Qwen/Gemma chat template).
-      ...(disableThinking ? { chat_template_kwargs: { enable_thinking: false } } : {}),
     };
 
-    const stream = await client.chat.completions.create(params);
+    // Turn off the model's reasoning output. The wire format depends on the
+    // selected model: ai& Qwen/Gemma use chat_template_kwargs.enable_thinking,
+    // xAI Grok uses reasoning_effort="none".
+    if (disableThinking) {
+      const offMode = provider.models.find((m) => m.id === provider.model)
+        ?.thinkingOffMode ?? 'enable_thinking';
+      if (offMode === 'reasoning_effort_none') {
+        params.reasoning_effort = 'none';
+      } else {
+        params.chat_template_kwargs = { enable_thinking: false };
+      }
+    }
+
+    const stream = await client.chat.completions.create(
+      // reasoning_effort may be "none" (xAI extension), outside the SDK's type.
+      params as OpenAI.Chat.Completions.ChatCompletionCreateParamsStreaming
+    );
 
     for await (const chunk of stream) {
       const delta = chunk.choices[0]?.delta as

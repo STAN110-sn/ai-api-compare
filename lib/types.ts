@@ -1,5 +1,10 @@
 export type ReasoningEffort = 'low' | 'medium' | 'high';
 
+// How a thinking-toggle model disables its reasoning output when turned Off:
+// - 'enable_thinking'       -> chat_template_kwargs.enable_thinking=false (ai& Qwen/Gemma)
+// - 'reasoning_effort_none' -> reasoning_effort="none" (xAI Grok)
+export type ThinkingOffMode = 'enable_thinking' | 'reasoning_effort_none';
+
 export interface ModelConfig {
   id: string;
   name: string;
@@ -7,10 +12,12 @@ export interface ModelConfig {
   outputCostPer1M?: number;
   supportsReasoning?: boolean;
   defaultReasoningEffort?: ReasoningEffort;
-  // Models (e.g. ai&'s Qwen/Gemma) whose chat template exposes an on/off
-  // thinking switch via chat_template_kwargs.enable_thinking. When set, the UI
-  // shows a Reasoning On/Off toggle instead of the low/medium/high selector.
+  // Models (e.g. ai&'s Qwen/Gemma, xAI's Grok) that expose an on/off thinking
+  // switch. When set, the UI shows a Reasoning On/Off toggle instead of the
+  // low/medium/high selector. thinkingOffMode selects the wire format used to
+  // disable reasoning (defaults to 'enable_thinking').
   supportsThinkingToggle?: boolean;
+  thinkingOffMode?: ThinkingOffMode;
 }
 
 export interface ProviderConfig {

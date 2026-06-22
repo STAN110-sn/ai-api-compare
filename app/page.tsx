@@ -282,7 +282,6 @@ export default function Home() {
                 onSelectModel={handleModelAChange}
                 providerLabel="Provider A"
                 modelLabel="Model A"
-                disabledProviderId={providerB}
                 reasoningEffort={reasoningA}
                 onReasoningEffortChange={setReasoningA}
                 disableThinking={disableThinkingA}
@@ -296,7 +295,6 @@ export default function Home() {
                 onSelectModel={handleModelBChange}
                 providerLabel="Provider B"
                 modelLabel="Model B"
-                disabledProviderId={providerA}
                 reasoningEffort={reasoningB}
                 onReasoningEffortChange={setReasoningB}
                 disableThinking={disableThinkingB}
