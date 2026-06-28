@@ -7,6 +7,9 @@ function parseModels(modelsEnv: string | undefined): ModelConfig[] {
   // - All fields after id are optional and may be left empty
   // - "reasoning" enables the reasoning_effort UI for that model
   // - "reasoning=high" also pre-selects High as the default level
+  // - "thinking-toggle" instead enables a Reasoning On/Off switch:
+  //     "thinking-toggle"             -> chat_template_kwargs.enable_thinking=false (ai& Qwen/Gemma)
+  //     "thinking-toggle=effort-none" -> reasoning_effort="none" (xAI Grok)
   // - Costs are USD per 1,000,000 tokens
   return modelsEnv.split(',').map((model) => {
     const parts = model.trim().split(':').map((p) => p.trim());
@@ -29,6 +32,12 @@ function parseModels(modelsEnv: string | undefined): ModelConfig[] {
       if (reasoningMatch[1]) {
         config.defaultReasoningEffort = reasoningMatch[1] as 'low' | 'medium' | 'high';
       }
+    } else if (/^thinking-toggle(?:=effort-none)?$/.test(reasoningField)) {
+      config.supportsThinkingToggle = true;
+      config.thinkingOffMode =
+        reasoningField === 'thinking-toggle=effort-none'
+          ? 'reasoning_effort_none'
+          : 'enable_thinking';
     }
     return config;
   }).filter((m) => m.id);

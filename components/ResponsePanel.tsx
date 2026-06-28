@@ -1,13 +1,14 @@
 'use client';
 
 import { MetricsDisplay } from './MetricsDisplay';
-import { AlertCircle, Brain } from 'lucide-react';
+import { AlertCircle, Brain, CircleStop } from 'lucide-react';
 
 interface ResponsePanelProps {
   providerName: string;
   content: string;
   reasoning?: string;
   isLoading: boolean;
+  stopped?: boolean;
   metrics: {
     latency: number;
     tokens: {
@@ -26,9 +27,17 @@ export function ResponsePanel({
   content,
   reasoning,
   isLoading,
+  stopped,
   metrics,
   error,
 }: ResponsePanelProps) {
+  const statusLabel = isLoading
+    ? 'Streaming...'
+    : stopped
+      ? 'Stopped'
+      : content
+        ? 'Complete'
+        : 'Waiting...';
   return (
     <div className="flex flex-col h-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 overflow-hidden">
       <div className="flex items-center justify-between border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 px-4 py-3">
@@ -39,8 +48,14 @@ export function ResponsePanel({
           {isLoading && (
             <div className="h-2 w-2 animate-pulse rounded-full bg-blue-500" />
           )}
-          <span className="text-xs text-gray-500">
-            {isLoading ? 'Streaming...' : content ? 'Complete' : 'Waiting...'}
+          <span
+            className={`text-xs ${
+              stopped && !isLoading
+                ? 'text-amber-600 dark:text-amber-400'
+                : 'text-gray-500'
+            }`}
+          >
+            {statusLabel}
           </span>
         </div>
       </div>
@@ -53,6 +68,12 @@ export function ResponsePanel({
           </div>
         ) : content || reasoning ? (
           <div className="flex flex-col gap-3">
+            {stopped && !isLoading && (
+              <div className="flex items-center gap-2 rounded-md bg-amber-50 dark:bg-amber-900/20 px-3 py-2 text-xs font-medium text-amber-700 dark:text-amber-300">
+                <CircleStop className="h-3.5 w-3.5" />
+                <span>Stopped by user</span>
+              </div>
+            )}
             {reasoning && reasoning.length > 0 && (
               <details
                 open
@@ -77,6 +98,11 @@ export function ResponsePanel({
                 </pre>
               </div>
             )}
+          </div>
+        ) : stopped ? (
+          <div className="flex h-full flex-col items-center justify-center gap-2 text-sm text-amber-600 dark:text-amber-400">
+            <CircleStop className="h-5 w-5" />
+            <span>Stopped before any output</span>
           </div>
         ) : (
           <div className="flex h-full items-center justify-center text-sm text-gray-400">

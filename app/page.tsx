@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { ProviderSelector } from '@/components/ProviderSelector';
 import { PromptInput } from '@/components/PromptInput';
 import { ResponsePanel } from '@/components/ResponsePanel';
@@ -11,6 +11,7 @@ interface ResponseState {
   content: string;
   reasoning: string;
   isLoading: boolean;
+  stopped?: boolean;
   metrics: {
     latency: number;
     tokens: {
@@ -39,11 +40,14 @@ export default function Home() {
   const [modelB, setModelB] = useState<string | null>(null);
   const [reasoningA, setReasoningA] = useState<ReasoningEffort | ''>('');
   const [reasoningB, setReasoningB] = useState<ReasoningEffort | ''>('');
+  const [disableThinkingA, setDisableThinkingA] = useState(false);
+  const [disableThinkingB, setDisableThinkingB] = useState(false);
   const [prompt, setPrompt] = useState('');
   const [responseA, setResponseA] = useState<ResponseState>(initialResponseState);
   const [responseB, setResponseB] = useState<ResponseState>(initialResponseState);
   const [isComparing, setIsComparing] = useState(false);
   const [configCollapsed, setConfigCollapsed] = useState(false);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     fetch('/api/providers')
@@ -74,6 +78,7 @@ export default function Home() {
     const firstModel = provider?.models[0];
     setModelA(firstModel?.id || null);
     setReasoningA(firstModel?.defaultReasoningEffort ?? '');
+    setDisableThinkingA(false);
   }, [providers]);
 
   const handleProviderBChange = useCallback((id: string) => {
@@ -82,6 +87,7 @@ export default function Home() {
     const firstModel = provider?.models[0];
     setModelB(firstModel?.id || null);
     setReasoningB(firstModel?.defaultReasoningEffort ?? '');
+    setDisableThinkingB(false);
   }, [providers]);
 
   const handleModelAChange = useCallback((id: string) => {
@@ -90,6 +96,7 @@ export default function Home() {
       .find((p) => p.id === providerA)
       ?.models.find((m) => m.id === id);
     setReasoningA(model?.defaultReasoningEffort ?? '');
+    setDisableThinkingA(false);
   }, [providers, providerA]);
 
   const handleModelBChange = useCallback((id: string) => {
@@ -98,6 +105,7 @@ export default function Home() {
       .find((p) => p.id === providerB)
       ?.models.find((m) => m.id === id);
     setReasoningB(model?.defaultReasoningEffort ?? '');
+    setDisableThinkingB(false);
   }, [providers, providerB]);
 
   const handleCompare = useCallback(async () => {
@@ -131,6 +139,10 @@ export default function Home() {
       return { latency, tokens: t, cost, tokensPerSec };
     };
 
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+    const { signal } = controller;
+
     setIsComparing(true);
     setResponseA({ ...initialResponseState, isLoading: true });
     setResponseB({ ...initialResponseState, isLoading: true });
@@ -145,6 +157,7 @@ export default function Home() {
           modelAId: modelA,
           modelBId: modelB,
         }),
+        signal,
       });
 
       const { providerA: configA, providerB: configB } = await configsRes.json();
@@ -158,7 +171,10 @@ export default function Home() {
           providerB: configB,
           ...(reasoningA ? { reasoningEffortA: reasoningA } : {}),
           ...(reasoningB ? { reasoningEffortB: reasoningB } : {}),
+          ...(disableThinkingA ? { disableThinkingA: true } : {}),
+          ...(disableThinkingB ? { disableThinkingB: true } : {}),
         }),
+        signal,
       });
 
       const reader = response.body?.getReader();
@@ -209,14 +225,33 @@ export default function Home() {
         }
       }
     } catch (error) {
-      console.error('Comparison failed:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      setResponseA((prev) => ({ ...prev, isLoading: false, error: errorMessage }));
-      setResponseB((prev) => ({ ...prev, isLoading: false, error: errorMessage }));
+      const aborted =
+        signal.aborted ||
+        (error instanceof DOMException && error.name === 'AbortError');
+      if (aborted) {
+        setResponseA((prev) =>
+          prev.isLoading ? { ...prev, isLoading: false, stopped: true } : prev
+        );
+        setResponseB((prev) =>
+          prev.isLoading ? { ...prev, isLoading: false, stopped: true } : prev
+        );
+      } else {
+        console.error('Comparison failed:', error);
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        setResponseA((prev) => ({ ...prev, isLoading: false, error: errorMessage }));
+        setResponseB((prev) => ({ ...prev, isLoading: false, error: errorMessage }));
+      }
     } finally {
       setIsComparing(false);
+      if (abortControllerRef.current === controller) {
+        abortControllerRef.current = null;
+      }
     }
-  }, [providerA, providerB, modelA, modelB, prompt, providers, reasoningA, reasoningB]);
+  }, [providerA, providerB, modelA, modelB, prompt, providers, reasoningA, reasoningB, disableThinkingA, disableThinkingB]);
+
+  const handleStop = useCallback(() => {
+    abortControllerRef.current?.abort();
+  }, []);
 
   const providerAConfig = providers.find((p) => p.id === providerA);
   const providerBConfig = providers.find((p) => p.id === providerB);
@@ -274,9 +309,10 @@ export default function Home() {
                 onSelectModel={handleModelAChange}
                 providerLabel="Provider A"
                 modelLabel="Model A"
-                disabledProviderId={providerB}
                 reasoningEffort={reasoningA}
                 onReasoningEffortChange={setReasoningA}
+                disableThinking={disableThinkingA}
+                onDisableThinkingChange={setDisableThinkingA}
               />
               <ProviderSelector
                 providers={providers}
@@ -286,15 +322,17 @@ export default function Home() {
                 onSelectModel={handleModelBChange}
                 providerLabel="Provider B"
                 modelLabel="Model B"
-                disabledProviderId={providerA}
                 reasoningEffort={reasoningB}
                 onReasoningEffortChange={setReasoningB}
+                disableThinking={disableThinkingB}
+                onDisableThinkingChange={setDisableThinkingB}
               />
             </div>
             <PromptInput
               value={prompt}
               onChange={setPrompt}
               onSubmit={handleCompare}
+              onStop={handleStop}
               isLoading={isComparing}
               disabled={!providerA || !providerB}
             />
@@ -307,6 +345,7 @@ export default function Home() {
             content={responseA.content}
             reasoning={responseA.reasoning}
             isLoading={responseA.isLoading}
+            stopped={responseA.stopped}
             metrics={responseA.metrics}
             error={responseA.error}
           />
@@ -315,6 +354,7 @@ export default function Home() {
             content={responseB.content}
             reasoning={responseB.reasoning}
             isLoading={responseB.isLoading}
+            stopped={responseB.stopped}
             metrics={responseB.metrics}
             error={responseB.error}
           />
