@@ -11,8 +11,10 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const providerA = getProviderConfig(providerAId, modelAId);
-  const providerB = getProviderConfig(providerBId, modelBId);
+  const [providerA, providerB] = await Promise.all([
+    getProviderConfig(providerAId, modelAId),
+    getProviderConfig(providerBId, modelBId),
+  ]);
 
   if (!providerA || !providerB) {
     return NextResponse.json(
