@@ -123,13 +123,16 @@ async function resolveModels(
   const mergedById = new Map(merged.map((m) => [m.id, m]));
 
   const ordered: ModelConfig[] = [];
+  const envOnly: ModelConfig[] = [];
   for (const override of overrides) {
     const match = mergedById.get(override.id);
     if (match) {
       ordered.push(match);
     } else {
-      // Env-only entry (e.g. working alias claude-haiku-4-5) — stays selectable.
-      ordered.push(override);
+      // Env-only entry (e.g. working alias claude-haiku-4-5) — stays
+      // selectable, but after the live catalog so a stale id can never
+      // become the default model.
+      envOnly.push(override);
     }
   }
   for (const model of merged) {
@@ -137,7 +140,7 @@ async function resolveModels(
       ordered.push(model);
     }
   }
-  return ordered;
+  return [...ordered, ...envOnly];
 }
 
 function getDefaultModel(models: ModelConfig[]): string {
