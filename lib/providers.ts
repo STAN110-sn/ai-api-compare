@@ -101,9 +101,10 @@ function applyOverride(
 }
 
 // The live model list for a provider: the fetched /models catalog with env
-// entries merged in as annotations (plus env-only entries, e.g. working
-// aliases, appended). Falls back to the plain env list when the catalog
-// fetch fails.
+// entries merged in as annotations. Env-annotated models come first (in env
+// order) so the user's configured model is the default; the rest follow by
+// recency, with env-only entries (e.g. working aliases the API doesn't list)
+// last. Falls back to the plain env list when the catalog fetch fails.
 async function resolveModels(
   cacheKey: string,
   modelsEnv: string | undefined,
@@ -118,13 +119,25 @@ async function resolveModels(
   }
 
   const merged = fetched.map((f) => applyOverride(f, overrides.find((o) => o.id === f.id)));
-  const fetchedIds = new Set(fetched.map((f) => f.id));
+  const envMatched = new Set(overrides.map((o) => o.id));
+  const mergedById = new Map(merged.map((m) => [m.id, m]));
+
+  const ordered: ModelConfig[] = [];
   for (const override of overrides) {
-    if (!fetchedIds.has(override.id)) {
-      merged.push(override);
+    const match = mergedById.get(override.id);
+    if (match) {
+      ordered.push(match);
+    } else {
+      // Env-only entry (e.g. working alias claude-haiku-4-5) — stays selectable.
+      ordered.push(override);
     }
   }
-  return merged;
+  for (const model of merged) {
+    if (!envMatched.has(model.id)) {
+      ordered.push(model);
+    }
+  }
+  return ordered;
 }
 
 function getDefaultModel(models: ModelConfig[]): string {
