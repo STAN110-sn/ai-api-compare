@@ -26,12 +26,6 @@
       "required": "true|false",
       "value": "the initial value of the variable"
     },
-    "PROVIDER_A_MODELS": {
-      "description": "A description of this variable",
-      "generator": "secret|none",
-      "required": "true|false",
-      "value": "the initial value of the variable"
-    },
     "PROVIDER_A_NAME": {
       "description": "A description of this variable",
       "generator": "secret|none",

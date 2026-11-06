@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import OpenAI from 'openai';
 import Anthropic from '@anthropic-ai/sdk';
-import { ProviderConfig, ReasoningEffort, StreamChunk } from '@/lib/types';
+import { ProviderConfig, ReasoningEffort, EffortOption, StreamChunk } from '@/lib/types';
 
 const ANTHROPIC_MAX_OUTPUT_TOKENS = 16_384;
 
@@ -23,6 +23,8 @@ const LEGACY_EFFORT_TO_BUDGET_TOKENS: Record<ReasoningEffort, number> = {
   low: 2_000,
   medium: 8_000,
   high: 16_000,
+  xhigh: 32_000,
+  max: 64_000,
 };
 
 function isOpenAIProvider(provider: ProviderConfig): boolean {
@@ -48,7 +50,7 @@ function isAnthropicProvider(provider: ProviderConfig): boolean {
 // send them without `any`.
 type ChatCompletionCreateParamsWithThinking =
   Omit<OpenAI.Chat.Completions.ChatCompletionCreateParamsStreaming, 'reasoning_effort'> & {
-    reasoning_effort?: ReasoningEffort | 'none';
+    reasoning_effort?: EffortOption;
     chat_template_kwargs?: { enable_thinking?: boolean };
   };
 
@@ -56,7 +58,7 @@ async function* streamFromProvider(
   provider: ProviderConfig,
   providerLabel: 'A' | 'B',
   prompt: string,
-  reasoningEffort?: ReasoningEffort,
+  reasoningEffort?: EffortOption,
   disableThinking?: boolean,
   signal?: AbortSignal
 ): AsyncGenerator<StreamChunk> {
@@ -153,7 +155,7 @@ async function* streamFromAnthropic(
   provider: ProviderConfig,
   providerLabel: 'A' | 'B',
   prompt: string,
-  reasoningEffort?: ReasoningEffort,
+  reasoningEffort?: EffortOption,
   signal?: AbortSignal
 ): AsyncGenerator<StreamChunk> {
   const startTime = Date.now();
@@ -171,7 +173,7 @@ async function* streamFromAnthropic(
 
     let thinkingParams: Record<string, unknown> = {};
     let maxTokens = ANTHROPIC_MAX_OUTPUT_TOKENS;
-    if (reasoningEffort) {
+    if (reasoningEffort && reasoningEffort !== 'none') {
       if (supportsAdaptiveThinking(provider.model)) {
         // display: 'summarized' is supposed to be the default per docs but
         // observationally Opus 4.7 only emits signature_delta unless we set
@@ -181,8 +183,9 @@ async function* streamFromAnthropic(
           output_config: { effort: reasoningEffort },
         };
       } else {
-        // Legacy enabled-mode requires max_tokens > budget_tokens.
-        const budget = LEGACY_EFFORT_TO_BUDGET_TOKENS[reasoningEffort];
+        // Legacy enabled-mode requires max_tokens > budget_tokens, and every
+        // legacy model caps output at 64K — clamp the budget so both hold.
+        const budget = Math.min(LEGACY_EFFORT_TO_BUDGET_TOKENS[reasoningEffort], 64_000 - 4_096);
         thinkingParams = {
           thinking: { type: 'enabled' as const, budget_tokens: budget },
         };
@@ -253,7 +256,7 @@ async function* streamFromOpenAIResponses(
   provider: ProviderConfig,
   providerLabel: 'A' | 'B',
   prompt: string,
-  reasoningEffort: ReasoningEffort,
+  reasoningEffort: EffortOption,
   signal?: AbortSignal
 ): AsyncGenerator<StreamChunk> {
   const startTime = Date.now();
@@ -271,7 +274,9 @@ async function* streamFromOpenAIResponses(
         model: provider.model,
         input: prompt,
         stream: true,
-        reasoning: { effort: reasoningEffort, summary: 'auto' },
+        // OpenAI's SDK type lacks 'max'; env-flagged OpenAI models advertise
+        // at most xhigh, so the runtime value is SDK-compatible.
+        reasoning: { effort: reasoningEffort as 'low' | 'medium' | 'high' | 'xhigh', summary: 'auto' },
       },
       { signal }
     );
@@ -325,7 +330,7 @@ function dispatchStream(
   provider: ProviderConfig,
   providerLabel: 'A' | 'B',
   prompt: string,
-  reasoningEffort?: ReasoningEffort,
+  reasoningEffort?: EffortOption,
   disableThinking?: boolean,
   signal?: AbortSignal
 ): AsyncGenerator<StreamChunk> {

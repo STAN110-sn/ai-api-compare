@@ -4,7 +4,7 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { ProviderSelector } from '@/components/ProviderSelector';
 import { PromptInput } from '@/components/PromptInput';
 import { ResponsePanel } from '@/components/ResponsePanel';
-import { ProviderInfo, ReasoningEffort, StreamChunk } from '@/lib/types';
+import { ProviderInfo, EffortOption, StreamChunk } from '@/lib/types';
 import { GitCompare, ChevronsUp, ChevronsDown } from 'lucide-react';
 
 interface ResponseState {
@@ -38,8 +38,8 @@ export default function Home() {
   const [providerB, setProviderB] = useState<string | null>(null);
   const [modelA, setModelA] = useState<string | null>(null);
   const [modelB, setModelB] = useState<string | null>(null);
-  const [reasoningA, setReasoningA] = useState<ReasoningEffort | ''>('');
-  const [reasoningB, setReasoningB] = useState<ReasoningEffort | ''>('');
+  const [reasoningA, setReasoningA] = useState<EffortOption | ''>('');
+  const [reasoningB, setReasoningB] = useState<EffortOption | ''>('');
   const [disableThinkingA, setDisableThinkingA] = useState(false);
   const [disableThinkingB, setDisableThinkingB] = useState(false);
   const [prompt, setPrompt] = useState('');
