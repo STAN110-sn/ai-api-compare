@@ -1,5 +1,16 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
+## Comparison interface
+
+Choose providers and models independently for each response. Optional reasoning
+controls are grouped under each provider's advanced settings. The configuration
+can be collapsed while keeping the prompt and Compare/Stop controls available.
+Press Cmd/Ctrl+Enter in the prompt to start a comparison.
+
+Responses support Markdown, including GFM tables and fenced code blocks.
+Reasoning is available in a separate disclosure. On smaller screens, response
+panels stack vertically and the page scrolls rather than clipping the output.
+
 ## Model pricing
 
 Model costs use USD per million input/output tokens:
@@ -23,7 +34,7 @@ URL for retries and refreshes; no Anthropic API key is needed for that request.
 
 ## Getting Started
 
-First, run the development server:
+Install dependencies with `npm install`, then run the development server:
 
 ```bash
 npm run dev
@@ -34,6 +45,9 @@ pnpm dev
 # or
 bun dev
 ```
+
+To restrict the preview to this computer when real provider keys are configured,
+run `npm run dev -- -H 127.0.0.1`.
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
