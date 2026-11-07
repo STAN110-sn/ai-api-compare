@@ -1,5 +1,26 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
+## Model pricing
+
+Model costs use USD per million input/output tokens:
+
+- `input_per_1m` and `output_per_1m` returned by a provider's `/models` endpoint.
+  `PROVIDER_X_MODELS` costs override these values (`.env.example` documents
+  the format).
+- **Anthropic API (`*.anthropic.com`):** the standard input/output prices in the
+  [official pricing table](https://platform.claude.com/docs/en/about-claude/pricing)
+  override env costs. The Markdown document is refreshed at most every 24 hours.
+  Table entries match versioned model IDs, including major-only IDs, with or
+  without date suffixes. After a failed refresh, the last successful prices
+  remain available and the next retry is delayed by 60 seconds.
+- If no automatic price is available, the env `inputCostPer1M` and
+  `outputCostPer1M` remain the fallback.
+
+The cost estimate covers standard input and output tokens only. Prompt caching,
+batch processing, fast mode, data-residency premiums, and tiered long-context
+pricing are not included. The server must be able to reach the official pricing
+URL for retries and refreshes; no Anthropic API key is needed for that request.
+
 ## Getting Started
 
 First, run the development server:

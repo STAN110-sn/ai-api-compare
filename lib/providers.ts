@@ -1,5 +1,6 @@
 import { ProviderConfig, ProviderInfo, ModelConfig, EffortOption } from './types';
 import { getCachedProviderModels } from './modelCatalog';
+import { applyAnthropicPricing } from './anthropicPricing';
 
 function parseModels(modelsEnv: string | undefined): ModelConfig[] {
   if (!modelsEnv) return [];
@@ -104,7 +105,9 @@ function applyOverride(
 // entries merged in as annotations. Env-annotated models come first (in env
 // order) so the user's configured model is the default; the rest follow by
 // recency, with env-only entries (e.g. working aliases the API doesn't list)
-// last. Falls back to the plain env list when the catalog fetch fails.
+// last. Falls back to the plain env list when the catalog fetch fails. Official
+// Anthropic prices are applied last: env costs remain only when they are
+// unavailable or the model is absent from the official table.
 async function resolveModels(
   cacheKey: string,
   modelsEnv: string | undefined,
@@ -115,7 +118,7 @@ async function resolveModels(
   const fetched = await getCachedProviderModels(cacheKey, baseUrl, apiKey);
 
   if (!fetched || fetched.length === 0) {
-    return overrides;
+    return applyAnthropicPricing(overrides, baseUrl);
   }
 
   const merged = fetched.map((f) => applyOverride(f, overrides.find((o) => o.id === f.id)));
@@ -140,7 +143,7 @@ async function resolveModels(
       ordered.push(model);
     }
   }
-  return [...ordered, ...envOnly];
+  return applyAnthropicPricing([...ordered, ...envOnly], baseUrl);
 }
 
 function getDefaultModel(models: ModelConfig[]): string {
