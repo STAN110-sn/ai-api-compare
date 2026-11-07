@@ -5,7 +5,7 @@ import { ProviderSelector } from '@/components/ProviderSelector';
 import { PromptInput } from '@/components/PromptInput';
 import { ResponsePanel } from '@/components/ResponsePanel';
 import { ProviderInfo, EffortOption, StreamChunk } from '@/lib/types';
-import { GitCompare, ChevronsUp, ChevronsDown } from 'lucide-react';
+import { ChevronsUp, ChevronsDown } from 'lucide-react';
 
 interface ResponseState {
   content: string;
@@ -261,47 +261,35 @@ export default function Home() {
 
   return (
     <div className="flex min-h-screen flex-col bg-gray-100 dark:bg-gray-900 md:h-screen md:overflow-hidden">
-      <header className="shrink-0 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 px-4 py-4 sm:px-6">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex min-w-0 items-center gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-blue-600">
-              <GitCompare aria-hidden="true" className="h-5 w-5 text-white" />
-            </div>
-            <div className="min-w-0">
-              <h1 className="text-xl font-bold text-gray-900 dark:text-white">
-                AI Provider Comparison
-              </h1>
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                Compare AI inference providers side-by-side
-              </p>
-            </div>
-          </div>
-          <button
-            id="configuration-toggle"
-            type="button"
-            onClick={() => setConfigCollapsed((v) => !v)}
-            aria-expanded={!configCollapsed}
-            aria-controls="provider-configuration"
-            className="ml-auto flex shrink-0 items-center gap-1.5 rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-1.5 text-xs font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 dark:focus-visible:outline-blue-400"
-            title={configCollapsed ? 'Show configuration' : 'Hide configuration to expand responses'}
-          >
-            {configCollapsed ? (
-              <>
-                <ChevronsDown aria-hidden="true" className="h-4 w-4" />
-                <span>Show config</span>
-              </>
-            ) : (
-              <>
-                <ChevronsUp aria-hidden="true" className="h-4 w-4" />
-                <span>Expand responses</span>
-              </>
-            )}
-          </button>
-        </div>
+      <header className="sr-only">
+        <h1>AI Provider Comparison</h1>
       </header>
 
       <main className="flex flex-1 flex-col gap-4 p-4 sm:gap-6 sm:p-6 md:min-h-0 md:overflow-hidden">
         <div className="flex shrink-0 flex-col gap-4 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4">
+          <div className="flex justify-end">
+            <button
+              id="configuration-toggle"
+              type="button"
+              onClick={() => setConfigCollapsed((v) => !v)}
+              aria-expanded={!configCollapsed}
+              aria-controls="provider-configuration"
+              className="flex shrink-0 items-center gap-1.5 rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-1.5 text-xs font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 dark:focus-visible:outline-blue-400"
+              title={configCollapsed ? 'Show configuration' : 'Hide configuration to expand responses'}
+            >
+              {configCollapsed ? (
+                <>
+                  <ChevronsDown aria-hidden="true" className="h-4 w-4" />
+                  <span>Show config</span>
+                </>
+              ) : (
+                <>
+                  <ChevronsUp aria-hidden="true" className="h-4 w-4" />
+                  <span>Expand responses</span>
+                </>
+              )}
+            </button>
+          </div>
           <div
             id="provider-configuration"
             hidden={configCollapsed}
